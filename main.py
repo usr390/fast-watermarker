@@ -1,26 +1,29 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi import File, UploadFile, Form
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
 
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    return """
-    <html>
-      <head>
-        <title>Fast Watermarker</title>
-      </head>
-      <body>
-        <h1>Upload an Image</h1>
-        <form action="/upload" method="post" enctype="multipart/form-data">
-          <input type="file" name="file" accept="image/*">
-          <input type="text" name="text" placeholder="Watermark text">
-          <button type="submit">Upload</button>
-        </form>
-      </body>
-    </html>
-    """
+async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 @app.post("/upload")
-async def upload(file: UploadFile = File(...), text: str = Form(...)):
-    return {"filename": file.filename, "text": text}
+async def upload(request: Request, file: UploadFile = File(...), text: str = Form(...)):
+    fake_download_url = "/static/downloads/test.png"
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "success": True,
+            "filename": file.filename,
+            "wm_text": text,
+            "download_url": fake_download_url,
+        },
+    )

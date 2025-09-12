@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Upload | Fast Watermarker{% endblock %}
+
+{% block content %}
+  <h1 class="mb-4">Fast Watermarker® - Watermark your images easily</h1>
+
+  {% if success %}
+    <div class="alert alert-success">
+      Image <strong class="break-word" style="color: green">{{ filename }}</strong> was watermarked. <a style="color: green" href="{{ download_url }}" download> Download</a>
+    </div>
+  {% endif %}
+
+  <form action="/upload" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
+    <div class="mb-3">
+      <label class="form-label">Image file</label>
+      <input id="fileInput" class="form-control" type="file" name="file" accept="image/*" required>
+      <div id="previewContainer"></div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Watermark text</label>
+      <input class="form-control" type="text" name="text" placeholder="© mybrand" required>
+    </div>
+    <button class="btn btn-primary" type="submit">Upload</button>
+  </form>
+{% endblock %}
