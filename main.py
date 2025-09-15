@@ -3,7 +3,8 @@ from fastapi import FastAPI, Request, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+
 import io
 import os
 
@@ -61,7 +62,7 @@ def add_text_watermark(img_bytes: bytes, text: str) -> io.BytesIO:
     buf.seek(0)
     return buf
 
-def add_image_watermark(img_bytes: bytes, logo_bytes: bytes, scale=0.2) -> io.BytesIO:
+def add_image_watermark(img_bytes: bytes, logo_bytes: bytes, scale=0.2, opacity=0.75) -> io.BytesIO:
     base = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
     logo = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
 
@@ -70,7 +71,11 @@ def add_image_watermark(img_bytes: bytes, logo_bytes: bytes, scale=0.2) -> io.By
     target_w = max(1, int(W * float(scale)))
     target_h = max(1, int(logo.height * (target_w / logo.width)))
     logo = logo.resize((target_w, target_h), Image.LANCZOS)
-    logo = set_opacity(logo, 200)
+
+    if has_transparency(logo):
+        logo = scale_existing_alpha(logo, opacity)
+    else:
+        logo = set_uniform_opacity(logo, opacity)
 
     W, H = base.size
     lw, lh = logo.size
@@ -89,9 +94,21 @@ def add_image_watermark(img_bytes: bytes, logo_bytes: bytes, scale=0.2) -> io.By
     buf.seek(0)
     return buf
 
-def set_opacity(im: Image.Image, alpha: int) -> Image.Image:
+def has_transparency(im: Image.Image) -> bool:
+    if im.mode in ("RGBA", "LA"):
+        return im.getchannel("A").getextrema()[0] < 255
+    return "transparency" in im.info
+
+def scale_existing_alpha(im: Image.Image, opacity: float) -> Image.Image:
+    if im.mode != "RGBA":
+        im = im.convert("RGBA")
+    r, g, b, a = im.split()
+    a = ImageEnhance.Brightness(a).enhance(opacity)
+    return Image.merge("RGBA", (r, g, b, a))
+
+def set_uniform_opacity(im: Image.Image, opacity: float) -> Image.Image:
     if im.mode != "RGBA":
         im = im.convert("RGBA")
     r, g, b, _ = im.split()
-    a = Image.new("L", im.size, alpha)
+    a = Image.new("L", im.size, int(255 * opacity))
     return Image.merge("RGBA", (r, g, b, a))

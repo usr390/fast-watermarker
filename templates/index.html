@@ -10,11 +10,6 @@
       <span>Processing your image…</span>
     </div>
   </div>
-  <div id="statusSuccess" class="alert alert-success d-none">
-    Image <strong class="break-word" id="outName"></strong> was watermarked.
-    <a id="downloadLink" class="ms-2" style="color: green" download>Download</a>
-  </div>
-  <div id="statusError" class="alert alert-danger d-none"></div>
 
   <form id="wmForm" action="/upload" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
     <div class="mb-3">
@@ -35,9 +30,9 @@
       <input class="form-range" type="range" min="0.05" max="0.5" step="0.05" name="logo_scale" value="0.2">
     </div>
 
-<div class="d-flex justify-content-center align-items-center my-3">
-  <span class="text-muted">OR</span>
-</div>
+    <div class="d-flex justify-content-center align-items-center my-3">
+      <span class="text-muted">OR</span>
+    </div>
 
     <div class="mb-3">
       <label class="form-label">Watermark text</label>
@@ -45,6 +40,11 @@
     </div>
     <hr class="my-4">
     <button id="submitBtn" class="btn btn-primary" type="submit">Upload</button>
+    <div id="statusSuccess" class="alert alert-success d-none mt-3 mb-0">
+      Image <strong class="break-word" id="outName"></strong> was watermarked.
+      <a id="downloadLink" class="ms-2" style="color: green" download>Download</a>
+    </div>
+  <div id="statusError" class="alert alert-danger d-none mt-3 mb-0"></div>
   </form>
 
   <script>
