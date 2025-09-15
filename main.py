@@ -1,12 +1,12 @@
-from typing import Optional
+from typing import Optional, List
 from fastapi import FastAPI, Request, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageOps
-
 import io
 import os
+from zipfile import ZipFile, ZIP_DEFLATED
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -32,6 +32,39 @@ async def upload(file: UploadFile = File(...), text: Optional[str] = Form(None),
         output = add_text_watermark(base_bytes, text)
 
     return StreamingResponse(output, media_type="image/jpeg")
+
+@app.post("/upload-multi")
+async def upload_multi(files: List[UploadFile] = File(...), text: Optional[str] = Form(None), logo: Optional[UploadFile] = File(None), logo_scale: float = Form(0.35), logo_opacity: float = Form(0.9)):
+    if (logo is None or not logo.filename) and not text:
+        return StreamingResponse(
+            io.BytesIO(b'{"detail":"Provide a logo or text"}'),
+            media_type="application/json",
+            headers={"Content-Disposition": 'inline'}
+        )
+
+    logo_bytes = None
+    if logo is not None and logo.filename:
+        logo_bytes = await logo.read()
+
+    zip_buf = io.BytesIO()
+    with ZipFile(zip_buf, "w", ZIP_DEFLATED) as zf:
+        for f in files:
+            base_bytes = await f.read()
+            if logo_bytes:
+                out = add_image_watermark(base_bytes, logo_bytes, scale=logo_scale, opacity=logo_opacity)
+                out_name = f"watermarked_{safe_name(f.filename, suffix='.jpg')}"
+            else:
+                out = add_text_watermark(base_bytes, text)
+                out_name = f"watermarked_{safe_name(f.filename, suffix='.jpg')}"
+
+            zf.writestr(out_name, out.getvalue())
+
+    zip_buf.seek(0)
+    return StreamingResponse(
+        zip_buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="watermarked.zip"'}
+    )
 
 def add_text_watermark(img_bytes: bytes, text: str) -> io.BytesIO:
     base = ImageOps.exif_transpose(Image.open(io.BytesIO(img_bytes))).convert("RGBA")
@@ -111,3 +144,10 @@ def set_uniform_opacity(im: Image.Image, opacity: float) -> Image.Image:
     r, g, b, _ = im.split()
     a = Image.new("L", im.size, int(255 * opacity))
     return Image.merge("RGBA", (r, g, b, a))
+
+
+def safe_name(name: str, suffix: str = ".jpg") -> str:
+    base, _sep, _ext = name.partition(".")
+    base = base.strip().replace("/", "_").replace("\\", "_")
+    base = base if base else "image"
+    return base + suffix

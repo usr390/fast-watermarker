@@ -4,11 +4,11 @@
 {% block content %}
   <h1 class="mb-4">Fast Watermarker® - Watermark your images easily</h1>
 
-  <form id="wmForm" action="/upload" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
+  <form id="wmForm" action="/upload-multi" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
     <div class="mb-3">
       <label class="form-label">Image file</label>
-      <input id="fileInput" class="form-control" type="file" name="file" accept="image/*" required>
-      <div id="previewContainer" class="mt-2"></div>
+      <input id="fileInput" class="form-control" type="file" name="files" accept="image/*" multiple required>
+      <div id="previewContainer" class="row row-cols-2 row-cols-md-3 g-2 mt-2"></div>
     </div>
 
     <hr class="my-4">
@@ -37,11 +37,11 @@
     <div id="statusLoading" class="alert alert-info d-none mt-3 mb-0">
       <div class="d-flex align-items-center gap-2">
         <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
-        <span>Processing your image…</span>
+        <span>Processing your images…</span>
       </div>
     </div>
     <div id="statusSuccess" class="alert alert-success d-none mt-3 mb-0">
-      Image <strong class="break-word" id="outName"></strong> was watermarked.
+      Done! <strong id="outName">watermarked.zip</strong>
       <a id="downloadLink" class="ms-2" style="color: green" download>Download</a>
     </div>
     <div id="statusError" class="alert alert-danger d-none mt-3 mb-0"></div>
@@ -53,7 +53,6 @@
     const submitBtn = document.getElementById('submitBtn');
     const logoInput = document.getElementById('logoInput');
 
-
     const loadingEl = document.getElementById('statusLoading');
     const successEl = document.getElementById('statusSuccess');
     const errorEl = document.getElementById('statusError');
@@ -63,14 +62,30 @@
     fileInput.addEventListener('change', () => {
       const container = document.getElementById('previewContainer');
       container.innerHTML = '';
-      const file = fileInput.files?.[0];
-      if (!file) return;
-      const img = document.createElement('img');
-      img.alt = 'Preview';
-      img.className = 'img-fluid rounded mt-2';
-      img.style.maxHeight = '240px';
-      img.src = URL.createObjectURL(file);
-      container.appendChild(img);
+      const files = fileInput.files || [];
+      [...files].forEach(f => {
+        const col = document.createElement('div');
+        col.className = 'col';
+        const card = document.createElement('div');
+        card.className = 'card h-100';
+        const img = document.createElement('img');
+        img.alt = f.name;
+        img.className = 'card-img-top';
+        img.style.maxHeight = '140px';
+        img.style.objectFit = 'cover';
+        const url = URL.createObjectURL(f);
+        img.src = url;
+        img.onload = () => URL.revokeObjectURL(url);
+
+        const cap = document.createElement('div');
+        cap.className = 'card-body py-2';
+        cap.innerHTML = `<small class="text-truncate d-block">${f.name}</small>`;
+
+        card.appendChild(img);
+        card.appendChild(cap);
+        col.appendChild(card);
+        container.appendChild(col);
+      });
     });
 
     logoInput.addEventListener('change', () => {
@@ -99,13 +114,7 @@
 
       try {
         const fd = new FormData(form);
-        const originalFile = fileInput.files?.[0];
-
-        const res = await fetch(form.action || '/upload', {
-          method: 'POST',
-          body: fd
-        });
-
+        const res = await fetch(form.action || '/upload-multi', { method: 'POST', body: fd });
         if (!res.ok) {
           const txt = await res.text().catch(() => '');
           throw new Error(txt || `Upload failed with status ${res.status}`);
@@ -113,17 +122,14 @@
 
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-
-        const safeName = originalFile ? `watermarked_${originalFile.name}` : 'watermarked.jpg';
         downloadLink.href = url;
-        downloadLink.download = safeName;
-        outNameEl.textContent = safeName;
+        downloadLink.download = 'watermarked.zip';
+        outNameEl.textContent = 'watermarked.zip';
 
-        hide(loadingEl);
-        show(successEl);
+        hide(loadingEl); show(successEl);
       } catch (err) {
         hide(loadingEl);
-        errorEl.textContent = (err && err.message) ? err.message : 'Something went wrong.';
+        errorEl.textContent = err?.message || 'Something went wrong.';
         show(errorEl);
       } finally {
         submitBtn.disabled = false;
