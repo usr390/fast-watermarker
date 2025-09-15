@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageOps
 
 import io
 import os
@@ -63,8 +63,9 @@ def add_text_watermark(img_bytes: bytes, text: str) -> io.BytesIO:
     return buf
 
 def add_image_watermark(img_bytes: bytes, logo_bytes: bytes, scale=0.2, opacity=0.75) -> io.BytesIO:
-    base = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
-    logo = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
+    base = ImageOps.exif_transpose(Image.open(io.BytesIO(img_bytes))).convert("RGBA")
+    logo = ImageOps.exif_transpose(Image.open(io.BytesIO(logo_bytes))).convert("RGBA")
+
 
     W, H = base.size
 
@@ -84,8 +85,6 @@ def add_image_watermark(img_bytes: bytes, logo_bytes: bytes, scale=0.2, opacity=
     y = (H - lh) // 2
 
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    overlay.paste(logo, (x, y), mask=logo)
-
     overlay.paste(logo, (x, y), mask=logo)
 
     out_img = Image.alpha_composite(base, overlay).convert("RGB")
