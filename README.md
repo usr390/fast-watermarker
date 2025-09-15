@@ -1,29 +1,26 @@
----
-title: FastAPI
-description: A FastAPI server
-tags:
-  - fastapi
-  - hypercorn
-  - python
+# Fast Watermarker
+
+A lightweight web app built with **FastAPI** and **Bootstrap 5** to watermark images quickly.  
+Supports **text watermarks**, **logo watermarks**, and **batch uploads** (multiple images at once, returned as a `.zip`).
+
 ---
 
-# FastAPI Example
+## Features
 
-This example starts up a [FastAPI](https://fastapi.tiangolo.com/) server.
+- Upload **one or more images** (up to 20 at a time).
+- Add a **text watermark** (e.g., "© mybrand").
+- Add a **logo watermark** (PNG recommended, transparency supported).
+- Control **logo scale** with a slider.
+- Smart handling of transparent logos.
+- Client-side loading indicators (spinner + status banners).
+- Processed results: downloadable `.zip`.
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/-NvLj4?referralCode=CRJ8FE)
-## ✨ Features
+---
 
-- FastAPI
-- [Hypercorn](https://hypercorn.readthedocs.io/)
-- Python 3
+## Tech Stack
 
-## 💁‍♀️ How to use
-
-- Clone locally and install packages with pip using `pip install -r requirements.txt`
-- Run locally using `hypercorn main:app --reload`
-
-## 📝 Notes
-
-- To learn about how to use FastAPI with most of its features, you can visit the [FastAPI Documentation](https://fastapi.tiangolo.com/tutorial/)
-- To learn about Hypercorn and how to configure it, read their [Documentation](https://hypercorn.readthedocs.io/)
+- **Backend**: [FastAPI](https://fastapi.tiangolo.com/), [Hypercorn](https://pgjones.gitlab.io/hypercorn/).
+- **Frontend**: Bootstrap 5, vanilla JS.
+- **Imaging**: [Pillow (PIL)](https://python-pillow.org/).
+- **Templating**: Jinja2.
+- **File uploads**: `python-multipart`.
