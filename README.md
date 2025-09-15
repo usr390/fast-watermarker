@@ -19,7 +19,7 @@ Supports **text watermarks**, **logo watermarks**, and **batch uploads** (multip
 
 ## Tech Stack
 
-- **Backend**: [FastAPI](https://fastapi.tiangolo.com/), [Hypercorn](https://pgjones.gitlab.io/hypercorn/).
+- **Backend**: [FastAPI](https://fastapi.tiangolo.com/), [Hypercorn](https://pypi.org/project/Hypercorn/).
 - **Frontend**: Bootstrap 5, vanilla JS.
 - **Imaging**: [Pillow (PIL)](https://python-pillow.org/).
 - **Templating**: Jinja2.
