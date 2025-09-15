@@ -1,5 +1,5 @@
 from typing import Optional, List
-from fastapi import FastAPI, Request, File, UploadFile, Form
+from fastapi import FastAPI, HTTPException, Request, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -35,6 +35,9 @@ async def upload(file: UploadFile = File(...), text: Optional[str] = Form(None),
 
 @app.post("/upload-multi")
 async def upload_multi(files: List[UploadFile] = File(...), text: Optional[str] = Form(None), logo: Optional[UploadFile] = File(None), logo_scale: float = Form(0.35), logo_opacity: float = Form(0.9)):
+    if len(files) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 images allowed.")
+    
     if (logo is None or not logo.filename) and not text:
         return StreamingResponse(
             io.BytesIO(b'{"detail":"Provide a logo or text"}'),

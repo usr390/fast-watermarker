@@ -63,6 +63,13 @@
       const container = document.getElementById('previewContainer');
       container.innerHTML = '';
       const files = fileInput.files || [];
+
+      if (files.length > 20) {
+        alert("You can only upload up to 20 images at once.");
+        fileInput.value = "";
+        return;
+      }
+
       [...files].forEach(f => {
         const col = document.createElement('div');
         col.className = 'col';
