@@ -34,7 +34,7 @@ async def upload(file: UploadFile = File(...), text: Optional[str] = Form(None),
     return StreamingResponse(output, media_type="image/jpeg")
 
 def add_text_watermark(img_bytes: bytes, text: str) -> io.BytesIO:
-    base = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+    base = ImageOps.exif_transpose(Image.open(io.BytesIO(img_bytes))).convert("RGBA")
     W, H = base.size
 
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
