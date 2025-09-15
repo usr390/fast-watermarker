@@ -24,7 +24,7 @@ async def upload(file: UploadFile = File(...), text: Optional[str] = Form(None),
     base_bytes = await file.read()
     if logo is not None and logo.filename:
         logo_bytes = await logo.read()
-        output = add_image_watermark(base_bytes, logo_bytes, scale=logo_scale, margin=16)
+        output = add_image_watermark(base_bytes, logo_bytes, scale=logo_scale)
     else:
         if not text:
             return StreamingResponse(io.BytesIO(base_bytes), media_type="image/jpeg")
