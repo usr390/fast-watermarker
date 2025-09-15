@@ -4,22 +4,97 @@
 {% block content %}
   <h1 class="mb-4">Fast Watermarker® - Watermark your images easily</h1>
 
-  {% if success %}
-    <div class="alert alert-success">
-      Image <strong class="break-word" style="color: green">{{ filename }}</strong> was watermarked. <a style="color: green" href="{{ download_url }}" download> Download</a>
+  <div id="statusLoading" class="alert alert-info d-none">
+    <div class="d-flex align-items-center gap-2">
+      <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+      <span>Processing your image…</span>
     </div>
-  {% endif %}
+  </div>
+  <div id="statusSuccess" class="alert alert-success d-none">
+    Image <strong class="break-word" id="outName"></strong> was watermarked.
+    <a id="downloadLink" class="ms-2" style="color: green" download>Download</a>
+  </div>
+  <div id="statusError" class="alert alert-danger d-none"></div>
 
-  <form action="/upload" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
+  <form id="wmForm" action="/upload" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
     <div class="mb-3">
       <label class="form-label">Image file</label>
       <input id="fileInput" class="form-control" type="file" name="file" accept="image/*" required>
-      <div id="previewContainer"></div>
+      <div id="previewContainer" class="mt-2"></div>
     </div>
     <div class="mb-3">
       <label class="form-label">Watermark text</label>
-      <input class="form-control" type="text" name="text" placeholder="© mybrand" required>
+      <input id="wmText" class="form-control" type="text" name="text" placeholder="© mybrand" required>
     </div>
-    <button class="btn btn-primary" type="submit">Upload</button>
+    <button id="submitBtn" class="btn btn-primary" type="submit">Upload</button>
   </form>
+
+  <script>
+    const form = document.getElementById('wmForm');
+    const fileInput = document.getElementById('fileInput');
+    const submitBtn = document.getElementById('submitBtn');
+
+    const loadingEl = document.getElementById('statusLoading');
+    const successEl = document.getElementById('statusSuccess');
+    const errorEl = document.getElementById('statusError');
+    const downloadLink = document.getElementById('downloadLink');
+    const outNameEl = document.getElementById('outName');
+
+    fileInput.addEventListener('change', () => {
+      const container = document.getElementById('previewContainer');
+      container.innerHTML = '';
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      const img = document.createElement('img');
+      img.alt = 'Preview';
+      img.className = 'img-fluid rounded mt-2';
+      img.style.maxHeight = '240px';
+      img.src = URL.createObjectURL(file);
+      container.appendChild(img);
+    });
+
+    function show(el) { el.classList.remove('d-none'); }
+    function hide(el) { el.classList.add('d-none'); }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      hide(successEl);
+      hide(errorEl);
+      show(loadingEl);
+      submitBtn.disabled = true;
+
+      try {
+        const fd = new FormData(form);
+        const originalFile = fileInput.files?.[0];
+
+        const res = await fetch(form.action || '/upload', {
+          method: 'POST',
+          body: fd
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(txt || `Upload failed with status ${res.status}`);
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+
+        const safeName = originalFile ? `watermarked_${originalFile.name}` : 'watermarked.jpg';
+        downloadLink.href = url;
+        downloadLink.download = safeName;
+        outNameEl.textContent = safeName;
+
+        hide(loadingEl);
+        show(successEl);
+      } catch (err) {
+        hide(loadingEl);
+        errorEl.textContent = (err && err.message) ? err.message : 'Something went wrong.';
+        show(errorEl);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
 {% endblock %}
