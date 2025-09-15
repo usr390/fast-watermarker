@@ -62,7 +62,7 @@ def add_text_watermark(img_bytes: bytes, text: str) -> io.BytesIO:
     buf.seek(0)
     return buf
 
-def add_image_watermark(img_bytes: bytes, logo_bytes: bytes, scale=0.2, opacity=0.75) -> io.BytesIO:
+def add_image_watermark(img_bytes: bytes, logo_bytes: bytes, scale=0.2, opacity=0.85) -> io.BytesIO:
     base = ImageOps.exif_transpose(Image.open(io.BytesIO(img_bytes))).convert("RGBA")
     logo = ImageOps.exif_transpose(Image.open(io.BytesIO(logo_bytes))).convert("RGBA")
 
