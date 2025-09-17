@@ -7,6 +7,9 @@ from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageOps
 import io
 import os
 from zipfile import ZipFile, ZIP_DEFLATED
+import tempfile
+import subprocess
+import shutil
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -14,6 +17,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FONT_PATH = os.path.join(BASE_DIR, "fonts", "Ubuntu-Regular.ttf")
+
+IMAGE_MIME_PREFIXES = ("image/",)
+VIDEO_MIME_PREFIXES = ("video/",)
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm"}
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
@@ -34,33 +42,56 @@ async def upload(file: UploadFile = File(...), text: Optional[str] = Form(None),
     return StreamingResponse(output, media_type="image/jpeg")
 
 @app.post("/upload-multi")
-async def upload_multi(files: List[UploadFile] = File(...), text: Optional[str] = Form(None), logo: Optional[UploadFile] = File(None), logo_scale: float = Form(0.35), logo_opacity: float = Form(0.9)):
+async def upload_multi(
+    files: List[UploadFile] = File(...), 
+    text: Optional[str] = Form(None), 
+    logo: Optional[UploadFile] = File(None), 
+    logo_scale: float = Form(0.35), 
+    logo_opacity: float = Form(0.9),
+    position: str = Form("br")):
+    
     if len(files) > 20:
         raise HTTPException(status_code=400, detail="Maximum 20 images allowed.")
     
-    if (logo is None or not logo.filename) and not text:
+    has_logo = bool(logo and logo.filename)
+    if not has_logo and not text:
         return StreamingResponse(
             io.BytesIO(b'{"detail":"Provide a logo or text"}'),
             media_type="application/json",
-            headers={"Content-Disposition": 'inline'}
+            headers={"Content-Disposition": "inline"},
         )
 
     logo_bytes = None
+    
     if logo is not None and logo.filename:
         logo_bytes = await logo.read()
 
     zip_buf = io.BytesIO()
     with ZipFile(zip_buf, "w", ZIP_DEFLATED) as zf:
         for f in files:
-            base_bytes = await f.read()
-            if logo_bytes:
-                out = add_image_watermark(base_bytes, logo_bytes, scale=logo_scale, opacity=logo_opacity)
-                out_name = f"watermarked_{safe_name(f.filename, suffix='.jpg')}"
-            else:
-                out = add_text_watermark(base_bytes, text)
-                out_name = f"watermarked_{safe_name(f.filename, suffix='.jpg')}"
+            raw = await f.read()
+            fname = f.filename or "file"
+            try:
+                if _is_image(f):
+                    if has_logo:
+                        out = add_image_watermark(raw, logo_bytes, scale=logo_scale, opacity=logo_opacity)
+                    else:
+                        out = add_text_watermark(raw, text)
+                    out_name = f"watermarked_{safe_name(fname, suffix='.jpg')}"
+                    zf.writestr(out_name, out.getvalue())
 
-            zf.writestr(out_name, out.getvalue())
+                elif _is_video(f):
+                    if has_logo:
+                        out = watermark_video_with_logo(raw, logo_bytes, scale=logo_scale, opacity=logo_opacity, position=position)
+                    else:
+                        out = watermark_video_with_text(raw, text, position=position)
+                    out_name = f"watermarked_{safe_name(fname, suffix='.mp4')}"
+                    zf.writestr(out_name, out.getvalue())
+
+                else:
+                    zf.writestr(f"SKIPPED_{safe_name(fname, suffix='.txt')}", b"Unsupported file type.")
+            except Exception as ex:
+                zf.writestr(f"ERROR_{safe_name(fname, suffix='.txt')}", f"Failed to process: {ex}".encode("utf-8"))
 
     zip_buf.seek(0)
     return StreamingResponse(
@@ -154,3 +185,155 @@ def safe_name(name: str, suffix: str = ".jpg") -> str:
     base = base.strip().replace("/", "_").replace("\\", "_")
     base = base if base else "image"
     return base + suffix
+
+def _is_image(f: UploadFile) -> bool:
+    ct = (f.content_type or "").lower()
+    if ct.startswith(IMAGE_MIME_PREFIXES): return True
+    _, ext = os.path.splitext((f.filename or "").lower())
+    return ext in IMAGE_EXTS
+
+def _is_video(f: UploadFile) -> bool:
+    ct = (f.content_type or "").lower()
+    if ct.startswith(VIDEO_MIME_PREFIXES): return True
+    _, ext = os.path.splitext((f.filename or "").lower())
+    return ext in VIDEO_EXTS
+
+def _which_ffmpeg():
+    if not shutil.which("ffmpeg"):
+        raise RuntimeError("ffmpeg not found on PATH. Install it (brew/apt) or run in Docker.")
+    
+def _pos_expr(position: str, margin: int = 16) -> str:
+    pos = (position or "br").lower()
+    if pos == "tl": return f"x={margin}:y={margin}"
+    if pos == "tr": return f"x=W-w-{margin}:y={margin}"
+    if pos == "bl": return f"x={margin}:y=H-h-{margin}"
+    if pos == "center": return "x=(W-w)/2:y=(H-h)/2"
+    return f"x=W-w-{margin}:y=H-h-{margin}"
+
+def watermark_video_with_logo(
+    video_bytes: bytes,
+    logo_bytes: bytes,
+    scale: float = 0.25,
+    opacity: float = 0.85,
+    position: str = "center",
+) -> io.BytesIO:
+    _which_ffmpeg()
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as vf, \
+         tempfile.NamedTemporaryFile(delete=False, suffix=".png") as lf, \
+         tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as of:
+        vf.write(video_bytes); vf.flush()
+        lf.write(logo_bytes);  lf.flush()
+        in_video, in_logo, out_path = vf.name, lf.name, of.name
+
+    video_w = _probe_video_width(in_video)
+    target_w = max(1, int(video_w * float(scale)))
+
+    filter_complex = (
+        f"[1:v]scale={target_w}:-1:flags=lanczos,format=rgba,colorchannelmixer=aa={opacity}[lg];"
+        f"[0:v][lg]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:eval=init[outv]"
+    )
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", in_video, "-i", in_logo,
+        "-filter_complex", filter_complex,
+        "-map", "[outv]", "-map", "0:a?",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k",
+        "-movflags", "+faststart",
+        "-pix_fmt", "yuv420p",
+        out_path,
+    ]
+
+    proc = subprocess.run(cmd, text=True, capture_output=True)
+    try:
+        if proc.returncode != 0:
+            raise RuntimeError(f"ffmpeg failed:\n{proc.stderr}")
+        with open(out_path, "rb") as f:
+            buf = io.BytesIO(f.read()); buf.seek(0); return buf
+    finally:
+        for p in (in_video, in_logo, out_path):
+            try: os.remove(p)
+            except: pass
+
+def watermark_video_with_text(
+    video_bytes: bytes,
+    text: str,
+    position: str = "br",
+    font_size: int = 28,
+    font_color: str = "white",
+    shadow_color: str = "black",
+    shadow_x: int = 2,
+    shadow_y: int = 2,
+    margin: int = 16,
+) -> io.BytesIO:
+    _which_ffmpeg()
+    if not os.path.exists(FONT_PATH):
+        raise RuntimeError(f"Font not found at {FONT_PATH}")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as vf, \
+         tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as of:
+        vf.write(video_bytes); vf.flush()
+        in_video, out_path = vf.name, of.name
+
+    pos = (position or "br").lower()
+    if pos == "tl": dx, dy = f"{margin}", f"{margin}"
+    elif pos == "tr": dx, dy = f"(w-tw)-{margin}", f"{margin}"
+    elif pos == "bl": dx, dy = f"{margin}", f"(h-th)-{margin}"
+    elif pos == "center": dx, dy = "(w-tw)/2", "(h-th)/2"
+    else: dx, dy = f"(w-tw)-{margin}", f"(h-th)-{margin}"
+
+    draw = (
+        f"drawtext=fontfile='{FONT_PATH}':text='{text}':"
+        f"fontsize={font_size}:fontcolor={font_color}:"
+        f"shadowcolor={shadow_color}:shadowx={shadow_x}:shadowy={shadow_y}:"
+        f"x={dx}:y={dy}"
+    )
+
+    cmd = [
+        "ffmpeg","-y",
+        "-i", in_video,
+        "-vf", draw,
+        "-map","0:v:0","-map","0:a?",
+        "-c:v","libx264","-preset","veryfast","-crf","23",
+        "-c:a","aac","-b:a","128k",
+        "-movflags","+faststart",
+        "-pix_fmt","yuv420p",
+        out_path,
+    ]
+
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        with open(out_path, "rb") as f:
+            buf = io.BytesIO(f.read())
+            buf.seek(0)
+            return buf
+    finally:
+        for p in (in_video, out_path):
+            try: os.remove(p)
+            except: pass
+def _overlay_pos_expr(position: str, margin: int = 16) -> str:
+    pos = (position or "br").lower()
+    if pos == "tl":
+        return f"x={margin}:y={margin}"
+    if pos == "tr":
+        return f"x=main_w-overlay_w-{margin}:y={margin}"
+    if pos == "bl":
+        return f"x={margin}:y=main_h-overlay_h-{margin}"
+    if pos == "center":
+        return "x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2"
+    # default br
+    return f"x=main_w-overlay_w-{margin}:y=main_h-overlay_h-{margin}"
+
+def _probe_video_width(path: str) -> int:
+    cmd = [
+        "ffprobe", "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width",
+        "-of", "csv=p=0", path,
+    ]
+    proc = subprocess.run(cmd, text=True, capture_output=True)
+    if proc.returncode != 0 or not proc.stdout.strip().isdigit():
+        raise RuntimeError(f"ffprobe failed to get width: {proc.stderr or proc.stdout}")
+    return int(proc.stdout.strip())
