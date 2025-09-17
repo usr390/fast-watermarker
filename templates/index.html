@@ -2,7 +2,7 @@
 {% block title %}Upload | Fast Watermarker{% endblock %}
 
 {% block content %}
-  <h1 class="mb-4">Fast Watermarker® - Watermark your images & videos easily</h1>
+  <h1 class="mb-4">Fast Watermarker® - Watermark your images & video easily</h1>
 
   <form id="wmForm" action="/upload-multi" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
     <div class="mb-3">
@@ -71,73 +71,28 @@
       }
 
       [...files].forEach(f => {
-      const col = document.createElement('div');
-      col.className = 'col';
-      const card = document.createElement('div');
-      card.className = 'card h-100';
-
-      const url = URL.createObjectURL(f);
-
-      if (f.type.startsWith('video/')) {
-        // Thumbnail container
-        const wrapper = document.createElement('div');
-        wrapper.className = 'position-relative';
-
-        // Video element (hidden initially)
-        const video = document.createElement('video');
-        video.src = url;
-        video.controls = true;
-        video.style.display = 'none';
-        video.style.maxHeight = '140px';
-        video.style.objectFit = 'cover';
-
-        // Fake poster (optional: you could extract a real thumbnail with ffmpeg)
-        const poster = document.createElement('div');
-        poster.className = 'bg-dark d-flex align-items-center justify-content-center';
-        poster.style.height = '140px';
-        poster.style.color = 'white';
-        poster.innerText = f.name;
-
-        // Play button overlay
-        const playBtn = document.createElement('div');
-        playBtn.innerHTML = '&#9658;'; // ► symbol
-        playBtn.className = 'position-absolute top-50 start-50 translate-middle';
-        playBtn.style.fontSize = '2rem';
-        playBtn.style.color = 'white';
-        playBtn.style.cursor = 'pointer';
-
-        playBtn.addEventListener('click', () => {
-          poster.style.display = 'none';
-          playBtn.style.display = 'none';
-          video.style.display = 'block';
-          video.play();
-        });
-
-        wrapper.appendChild(poster);
-        wrapper.appendChild(video);
-        wrapper.appendChild(playBtn);
-        card.appendChild(wrapper);
-      } else {
-        // Image
+        const col = document.createElement('div');
+        col.className = 'col';
+        const card = document.createElement('div');
+        card.className = 'card h-100';
         const img = document.createElement('img');
         img.alt = f.name;
         img.className = 'card-img-top';
         img.style.maxHeight = '140px';
         img.style.objectFit = 'cover';
+        const url = URL.createObjectURL(f);
         img.src = url;
         img.onload = () => URL.revokeObjectURL(url);
+
+        const cap = document.createElement('div');
+        cap.className = 'card-body py-2';
+        cap.innerHTML = `<small class="text-truncate d-block">${f.name}</small>`;
+
         card.appendChild(img);
-      }
-
-      const cap = document.createElement('div');
-      cap.className = 'card-body py-2';
-      cap.innerHTML = `<small class="text-truncate d-block">${f.name}</small>`;
-
-      card.appendChild(cap);
-      col.appendChild(card);
-      container.appendChild(col);
-      }
-    );
+        card.appendChild(cap);
+        col.appendChild(card);
+        container.appendChild(col);
+      });
     });
 
     logoInput.addEventListener('change', () => {
