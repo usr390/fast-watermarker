@@ -7,7 +7,7 @@ Supports **text watermarks**, **logo watermarks**, and **batch uploads** (multip
 
 ## Features
 
-- Upload **one or more images** (up to 20 at a time).
+- Upload **one or more images/videos** (up to 20 at a time).
 - Add a **text watermark** (e.g., "© mybrand").
 - Add a **logo watermark** (PNG recommended, transparency supported).
 - Control **logo scale** with a slider.
