@@ -2,8 +2,6 @@
 {% block title %}Upload | Fast Watermarker{% endblock %}
 
 {% block content %}
-  <h1 class="mb-4">Fast Watermarker® - Watermark your images & video easily</h1>
-
   <form id="wmForm" action="/upload-multi" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
     <div class="mb-3">
       <label class="form-label">Media file(s)</label>
@@ -19,20 +17,53 @@
       <div id="logoPreviewContainer" class="mt-2"></div>
     </div>
 
-    <div class="mb-3">
-      <label class="form-label">Logo scale</label>
-      <input class="form-range" type="range" min="0.35" max="0.7" step="0.05" name="logo_scale" value="0.5">
-    </div>
-
     <div class="d-flex justify-content-center align-items-center my-3">
       <span class="text-muted">OR</span>
     </div>
 
     <div class="mb-3">
-      <label class="form-label">Watermark text</label>
+      <label class="form-label">Text watermark</label>
       <input id="wmText" class="form-control" type="text" name="text" placeholder="© mybrand">
     </div>
     <hr class="my-4">
+    <div class="mb-3">
+      <label class="form-label">Watermark size</label>
+      <input class="form-range"
+            type="range"
+            min="0.20" max="0.80" step="0.05"
+            name="scale" value="0.35">
+    </div>
+    <div class="mb-3">
+      <label class="form-label d-flex align-items-center justify-content-between">
+        <span>Watermark opacity</span>
+      </label>
+      <input class="form-range"
+            type="range"
+            min="0.10" max="1.00" step="0.05"
+            name="opacity" id="opacityInput" value="0.90">
+    </div>
+    <div class="mb-3">
+      <label class="form-label d-block">Watermark position</label>
+
+      <!-- hidden that actually gets submitted -->
+      <input type="hidden" name="position" id="positionInput" value="center">
+
+      <!-- 3x3 grid, we only enable the four corners + center -->
+      <div class="pos-grid" role="group" aria-label="Watermark position">
+        <button type="button" class="pos-cell" data-pos="tl" aria-label="Top left"></button>
+        <button type="button" class="pos-cell pos-disabled"></button>
+        <button type="button" class="pos-cell" data-pos="tr" aria-label="Top right"></button>
+
+        <button type="button" class="pos-cell pos-disabled"></button>
+        <button type="button" class="pos-cell active" data-pos="center" aria-label="Center"></button>
+        <button type="button" class="pos-cell pos-disabled"></button>
+
+        <button type="button" class="pos-cell" data-pos="bl" aria-label="Bottom left"></button>
+        <button type="button" class="pos-cell pos-disabled"></button>
+        <button type="button" class="pos-cell" data-pos="br" aria-label="Bottom right"></button>
+    </div>
+    <hr class="my-4">
+    </div>
     <button id="submitBtn" class="btn btn-primary" type="submit">Upload</button>
     <div id="statusLoading" class="alert alert-info d-none mt-3 mb-0">
       <div class="d-flex align-items-center gap-2">
@@ -46,6 +77,32 @@
     </div>
     <div id="statusError" class="alert alert-danger d-none mt-3 mb-0"></div>
   </form>
+
+  <style>
+    .remove-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .remove-btn:hover {
+      background: rgba(255, 0, 0, 0.8);
+    }
+    .preview-wrapper {
+      position: relative;
+    }
+  </style>
 
   <script>
     const form = document.getElementById('wmForm');
@@ -70,11 +127,14 @@
         return;
       }
 
-      [...files].forEach(f => {
+      [...files].forEach((f, index) => {
         const col = document.createElement('div');
         col.className = 'col';
         const card = document.createElement('div');
         card.className = 'card h-100';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'preview-wrapper';
+
         const img = document.createElement('img');
         img.alt = f.name;
         img.className = 'card-img-top';
@@ -84,11 +144,27 @@
         img.src = url;
         img.onload = () => URL.revokeObjectURL(url);
 
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.innerHTML = '×';
+        removeBtn.title = 'Remove file';
+        removeBtn.addEventListener('click', () => {
+          const dt = new DataTransfer();
+          [...fileInput.files].forEach((file, i) => {
+            if (i !== index) dt.items.add(file);
+          });
+          fileInput.files = dt.files;
+          fileInput.dispatchEvent(new Event('change'));
+        });
+
+        wrapper.appendChild(img);
+        wrapper.appendChild(removeBtn);
+
         const cap = document.createElement('div');
         cap.className = 'card-body py-2';
         cap.innerHTML = `<small class="text-truncate d-block">${f.name}</small>`;
 
-        card.appendChild(img);
+        card.appendChild(wrapper);
         card.appendChild(cap);
         col.appendChild(card);
         container.appendChild(col);
@@ -100,12 +176,28 @@
       container.innerHTML = '';
       const file = logoInput.files?.[0];
       if (!file) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'preview-wrapper';
+
       const img = document.createElement('img');
       img.alt = 'Logo preview';
       img.className = 'img-thumbnail mt-2';
       img.style.maxHeight = '120px';
       img.src = URL.createObjectURL(file);
-      container.appendChild(img);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.innerHTML = '×';
+      removeBtn.title = 'Remove logo';
+      removeBtn.addEventListener('click', () => {
+        logoInput.value = '';
+        container.innerHTML = '';
+      });
+
+      wrapper.appendChild(img);
+      wrapper.appendChild(removeBtn);
+      container.appendChild(wrapper);
     });
 
     function show(el) { el.classList.remove('d-none'); }
@@ -142,5 +234,27 @@
         submitBtn.disabled = false;
       }
     });
+      (function(){
+    const posGrid = document.querySelector('.pos-grid');
+    const hidden = document.getElementById('positionInput');
+    if(!posGrid || !hidden) return;
+
+    posGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.pos-cell[data-pos]');
+      if(!btn) return;
+      posGrid.querySelectorAll('.pos-cell').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      hidden.value = btn.getAttribute('data-pos');
+    });
+  })();
+    const opacityInput = document.getElementById('opacityInput');
+    const opacityValue = document.getElementById('opacityValue');
+    if (opacityInput && opacityValue) {
+      const fmt = v => Number(v).toFixed(2);
+      opacityValue.textContent = fmt(opacityInput.value);
+      opacityInput.addEventListener('input', () => {
+        opacityValue.textContent = fmt(opacityInput.value);
+      });
+    }
   </script>
 {% endblock %}

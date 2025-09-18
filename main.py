@@ -28,16 +28,23 @@ async def root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/upload")
-async def upload(file: UploadFile = File(...), text: Optional[str] = Form(None), logo: Optional[UploadFile] = File(None), logo_scale: float = Form(0.2)):
+async def upload(
+    file: UploadFile = File(...), 
+    text: Optional[str] = Form(None), 
+    logo: Optional[UploadFile] = File(None), 
+    scale: float = Form(0.35),
+    position: str = Form("center"),
+    opacity: float = Form(0.9)):
     
     base_bytes = await file.read()
+    opacity = max(0.05, min(1.0, float(opacity)))
     if logo is not None and logo.filename:
         logo_bytes = await logo.read()
-        output = add_image_watermark(base_bytes, logo_bytes, scale=logo_scale)
+        output = add_image_watermark(base_bytes, logo_bytes, scale=scale, opacity=opacity, position=position)
     else:
         if not text:
-            return StreamingResponse(io.BytesIO(base_bytes), media_type="image/jpeg")
-        output = add_text_watermark(base_bytes, text)
+            return StreamingResponse(io.BytesIO(base_bytes), media_type=file.content_type or "application/octet-stream")
+        output = add_text_watermark(base_bytes, text, scale, position, opacity)
 
     return StreamingResponse(output, media_type="image/jpeg")
 
@@ -46,12 +53,14 @@ async def upload_multi(
     files: List[UploadFile] = File(...), 
     text: Optional[str] = Form(None), 
     logo: Optional[UploadFile] = File(None), 
-    logo_scale: float = Form(0.35), 
-    logo_opacity: float = Form(0.9),
-    position: str = Form("br")):
+    scale: float = Form(0.35), 
+    opacity: float = Form(0.9),
+    position: str = Form("center")):
     
     if len(files) > 20:
         raise HTTPException(status_code=400, detail="Maximum 20 images allowed.")
+    
+    op = max(0.05, min(1.0, float(opacity)))
     
     has_logo = bool(logo and logo.filename)
     if not has_logo and not text:
@@ -74,17 +83,17 @@ async def upload_multi(
             try:
                 if _is_image(f):
                     if has_logo:
-                        out = add_image_watermark(raw, logo_bytes, scale=logo_scale, opacity=logo_opacity)
+                        out = add_image_watermark(raw, logo_bytes, scale=scale, opacity=op, position=position)
                     else:
-                        out = add_text_watermark(raw, text)
+                        out = add_text_watermark(raw, text, scale, position, op)
                     out_name = f"watermarked_{safe_name(fname, suffix='.jpg')}"
                     zf.writestr(out_name, out.getvalue())
 
                 elif _is_video(f):
                     if has_logo:
-                        out = watermark_video_with_logo(raw, logo_bytes, scale=logo_scale, opacity=logo_opacity, position=position)
+                        out = watermark_video_with_logo(raw, logo_bytes, scale=scale, opacity=op, position=position)
                     else:
-                        out = watermark_video_with_text(raw, text, position=position)
+                        out = watermark_video_with_text(raw, text, scale=scale, position=position, opacity=op)
                     out_name = f"watermarked_{safe_name(fname, suffix='.mp4')}"
                     zf.writestr(out_name, out.getvalue())
 
@@ -100,7 +109,15 @@ async def upload_multi(
         headers={"Content-Disposition": 'attachment; filename="watermarked.zip"'}
     )
 
-def add_text_watermark(img_bytes: bytes, text: str) -> io.BytesIO:
+def _text_px_from_scale(base_w: int, scale: float) -> int:
+    return max(18, int(base_w * 0.06 * (scale / 0.35)))
+
+def add_text_watermark(
+        img_bytes: bytes, 
+        text: str, 
+        scale: float,
+        position: str = "center",
+        opacity: float = 0.9) -> io.BytesIO:
     base = ImageOps.exif_transpose(Image.open(io.BytesIO(img_bytes))).convert("RGBA")
     W, H = base.size
 
@@ -108,7 +125,7 @@ def add_text_watermark(img_bytes: bytes, text: str) -> io.BytesIO:
     draw = ImageDraw.Draw(overlay)
 
     try:
-        font_size = max(16, W // 20)
+        font_size = _text_px_from_scale(W, scale)
         font = ImageFont.truetype(FONT_PATH, font_size)
     except:
         font = ImageFont.load_default()
@@ -116,11 +133,19 @@ def add_text_watermark(img_bytes: bytes, text: str) -> io.BytesIO:
     bbox = draw.textbbox((0, 0), text, font=font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
 
-    x = (W - tw) // 2
-    y = (H - th) // 2
+    margin = 16
+    pos = (position or "center").lower()
+    if     pos == "tl": x, y = margin, margin
+    elif   pos == "tr": x, y = W - tw - margin, margin
+    elif   pos == "bl": x, y = margin, H - th - margin
+    elif   pos == "center": x, y = (W - tw)//2, (H - th)//2
+    else:  x, y = W - tw - margin, H - th - margin
 
-    draw.text((x+2, y+2), text, font=font, fill=(0, 0, 0, 128))
-    draw.text((x, y), text, font=font, fill=(255, 255, 255, 180))
+    a_fill   = int(255 * opacity)
+    a_shadow = int(255 * min(1.0, opacity * 0.7))
+
+    draw.text((x+2, y+2), text, font=font, fill=(0, 0, 0, a_shadow))
+    draw.text((x,   y  ), text, font=font, fill=(255, 255, 255, a_fill))
 
     watermarked = Image.alpha_composite(base, overlay).convert("RGB")
 
@@ -129,7 +154,12 @@ def add_text_watermark(img_bytes: bytes, text: str) -> io.BytesIO:
     buf.seek(0)
     return buf
 
-def add_image_watermark(img_bytes: bytes, logo_bytes: bytes, scale=0.2, opacity=0.85) -> io.BytesIO:
+def add_image_watermark(
+        img_bytes: bytes, 
+        logo_bytes: bytes, 
+        scale=0.35, 
+        opacity=0.85,
+        position: str = "center") -> io.BytesIO:
     base = ImageOps.exif_transpose(Image.open(io.BytesIO(img_bytes))).convert("RGBA")
     logo = ImageOps.exif_transpose(Image.open(io.BytesIO(logo_bytes))).convert("RGBA")
 
@@ -145,11 +175,14 @@ def add_image_watermark(img_bytes: bytes, logo_bytes: bytes, scale=0.2, opacity=
     else:
         logo = set_uniform_opacity(logo, opacity)
 
-    W, H = base.size
     lw, lh = logo.size
-
-    x = (W - lw) // 2
-    y = (H - lh) // 2
+    margin = 16
+    pos = (position or "center").lower()
+    if     pos == "tl": x, y = margin, margin
+    elif   pos == "tr": x, y = W - lw - margin, margin
+    elif   pos == "bl": x, y = margin, H - lh - margin
+    elif   pos == "center": x, y = (W - lw)//2, (H - lh)//2
+    else:  x, y = W - lw - margin, H - lh - margin
 
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     overlay.paste(logo, (x, y), mask=logo)
@@ -202,14 +235,6 @@ def _which_ffmpeg():
     if not shutil.which("ffmpeg"):
         raise RuntimeError("ffmpeg not found on PATH. Install it (brew/apt) or run in Docker.")
     
-def _pos_expr(position: str, margin: int = 16) -> str:
-    pos = (position or "br").lower()
-    if pos == "tl": return f"x={margin}:y={margin}"
-    if pos == "tr": return f"x=W-w-{margin}:y={margin}"
-    if pos == "bl": return f"x={margin}:y=H-h-{margin}"
-    if pos == "center": return "x=(W-w)/2:y=(H-h)/2"
-    return f"x=W-w-{margin}:y=H-h-{margin}"
-
 def watermark_video_with_logo(
     video_bytes: bytes,
     logo_bytes: bytes,
@@ -229,9 +254,10 @@ def watermark_video_with_logo(
     video_w = _probe_video_width(in_video)
     target_w = max(1, int(video_w * float(scale)))
 
+    pos_expr = _overlay_pos_expr(position)
     filter_complex = (
         f"[1:v]scale={target_w}:-1:flags=lanczos,format=rgba,colorchannelmixer=aa={opacity}[lg];"
-        f"[0:v][lg]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:eval=init[outv]"
+        f"[0:v][lg]overlay={pos_expr}:eval=init[outv]"
     )
 
     cmd = [
@@ -260,13 +286,14 @@ def watermark_video_with_logo(
 def watermark_video_with_text(
     video_bytes: bytes,
     text: str,
-    position: str = "br",
-    font_size: int = 28,
+    scale: float = 0.35,
+    position: str = "center",
     font_color: str = "white",
     shadow_color: str = "black",
     shadow_x: int = 2,
     shadow_y: int = 2,
     margin: int = 16,
+    opacity: float = 0.9
 ) -> io.BytesIO:
     _which_ffmpeg()
     if not os.path.exists(FONT_PATH):
@@ -277,17 +304,25 @@ def watermark_video_with_text(
         vf.write(video_bytes); vf.flush()
         in_video, out_path = vf.name, of.name
 
-    pos = (position or "br").lower()
+    vid_w = _probe_video_width(in_video)
+    font_size = max(18, int(vid_w * 0.06 * (scale / 0.35)))
+
+    pos = (position or "center").lower()
     if pos == "tl": dx, dy = f"{margin}", f"{margin}"
     elif pos == "tr": dx, dy = f"(w-tw)-{margin}", f"{margin}"
     elif pos == "bl": dx, dy = f"{margin}", f"(h-th)-{margin}"
     elif pos == "center": dx, dy = "(w-tw)/2", "(h-th)/2"
     else: dx, dy = f"(w-tw)-{margin}", f"(h-th)-{margin}"
 
+    op = max(0.05, min(1.0, float(opacity)))
+    op_shadow = min(1.0, op * 0.7)
+
+    safe_text = _escape_drawtext(text or "")
+
     draw = (
-        f"drawtext=fontfile='{FONT_PATH}':text='{text}':"
-        f"fontsize={font_size}:fontcolor={font_color}:"
-        f"shadowcolor={shadow_color}:shadowx={shadow_x}:shadowy={shadow_y}:"
+        f"drawtext=fontfile='{FONT_PATH}':text='{safe_text}':"
+        f"fontsize={font_size}:fontcolor={font_color}@{op}:"
+        f"shadowcolor={shadow_color}@{op_shadow}:shadowx={shadow_x}:shadowy={shadow_y}:"
         f"x={dx}:y={dy}"
     )
 
@@ -314,7 +349,7 @@ def watermark_video_with_text(
             try: os.remove(p)
             except: pass
 def _overlay_pos_expr(position: str, margin: int = 16) -> str:
-    pos = (position or "br").lower()
+    pos = (position or "center").lower()
     if pos == "tl":
         return f"x={margin}:y={margin}"
     if pos == "tr":
@@ -323,7 +358,7 @@ def _overlay_pos_expr(position: str, margin: int = 16) -> str:
         return f"x={margin}:y=main_h-overlay_h-{margin}"
     if pos == "center":
         return "x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2"
-    # default br
+
     return f"x=main_w-overlay_w-{margin}:y=main_h-overlay_h-{margin}"
 
 def _probe_video_width(path: str) -> int:
@@ -337,3 +372,7 @@ def _probe_video_width(path: str) -> int:
     if proc.returncode != 0 or not proc.stdout.strip().isdigit():
         raise RuntimeError(f"ffprobe failed to get width: {proc.stderr or proc.stdout}")
     return int(proc.stdout.strip())
+
+def _escape_drawtext(s: str) -> str:
+    return s.replace("\\", "\\\\").replace(":", r"\:").replace("'", r"\'").replace('"', r'\"')
+

@@ -1,33 +1,151 @@
-.preview-box {
-  position: relative;
-  display: inline-block;
-  margin-top: 1rem;
+/* ========= Brand Theme ========= */
+:root{
+  --brand-red:#E0182D;
+  --brand-red-deep:#B61123;
+  --brand-peach: #FDE2E1;
+  --brand-yellow:#FFD22E;
+  --brand-yellow-deep:#F7B800;
+  --canvas:#fff;
+  --ink:#1b1b1b;
+  --card-radius:16px;
+  --ring:rgba(0,0,0,.08);
 }
-.preview-box img {
-  max-width: 220px;
-  border-radius: 0.5rem;
-  border: 1px solid #ddd;
+
+/* ========= Page Background (flat red + fruit tile) ========= */
+body.brand-bg{
+  background:var(--brand-red);
+  min-height:100vh;
+  position:relative;
+  color:#111;
 }
-.preview-box .remove-btn {
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 24px; height: 24px;
-  line-height: 22px;
-  font-size: 14px;
+
+/* Fruit pattern layer (subtle yellow outlines) */
+body.brand-bg::before{
+  content:"";
+  position:fixed; inset:0;
+  z-index:-1; pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140' fill='none' stroke='%23FFD22E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>\
+  <g opacity='0.9' transform='translate(18,18)'><circle cx='18' cy='18' r='12' fill='none'/><path d='M18 6 C19 4,22 4,24 6'/><path d='M18 6 l6 -6'/></g>\
+  <g opacity='0.8' transform='translate(82,16)'><circle cx='10' cy='28' r='7' fill='none'/><circle cx='26' cy='28' r='7' fill='none'/><path d='M10 21 C15 8,26 8,26 21'/><path d='M18 10 l6 -6'/></g>\
+  <g opacity='0.85' transform='translate(30,78)'><path d='M4 16 C 18 0, 44 2, 60 18 C 44 12, 18 12, 4 16 Z' fill='none'/></g>\
+</svg>");
+  background-repeat:repeat;
+  background-size:140px 140px;
+  opacity:.10;
+}
+
+/* Optional soft vignette for depth */
+body.brand-bg::after{
+  content:"";
+  position:fixed; inset:0;
+  z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(1200px 800px at 80% -10%, rgba(255,255,255,.06), transparent 60%),
+    radial-gradient(900px 700px at -10% 90%, rgba(0,0,0,.08), transparent 55%);
+}
+
+/* ========= Header / Brand ========= */
+.brand-logo{
+  display:block;
+  max-width:min(92vw,560px);
+  height:auto;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.25))
+          drop-shadow(0 2px 6px rgba(0,0,0,.18));
+  transform: translateZ(0);
+}
+
+/* ========= Card/Form ========= */
+.card{
+  border:none;
+  border-radius:var(--card-radius);
+  box-shadow:0 20px 40px rgba(0,0,0,.25), 0 2px 10px rgba(0,0,0,.12);
+  background:linear-gradient(180deg,#fff 0%,#fafafa 100%);
+}
+.form-label{ color:#212121; }
+
+/* Range (logo scale) */
+.form-range::-webkit-slider-thumb{ background:var(--brand-yellow); border:2px solid #0001; }
+.form-range::-moz-range-thumb{ background:var(--brand-yellow); border:2px solid #0001; }
+.form-range::-webkit-slider-runnable-track{ background:linear-gradient(90deg,var(--brand-yellow) 0%,#ffe77a 100%); }
+.form-range::-moz-range-track{ background:linear-gradient(90deg,var(--brand-yellow) 0%,#ffe77a 100%); }
+
+/* Buttons */
+.btn-primary{
+  background:linear-gradient(180deg,var(--brand-yellow) 0%,var(--brand-yellow) 100%);
+  color:#1a1a1a; border:none; letter-spacing:.02em;
+  text-shadow:0 1px 0 rgba(255,255,255,.35);
+  transform:translateY(0);
+}
+.btn-primary:hover{
+  filter:brightness(1.03); transform:translateY(-1px);
+}
+.btn-primary:active{
+  transform:translateY(2px);
+}
+
+/* Alerts */
+.alert-info{ background:#fff7cc; border:1px solid #ffea85; color:#6b5600; }
+.alert-success{ background:#d7ffb8; border:1px solid #bff38e; color:#234a0f; }
+.alert-danger{ background:#ffd4d9; border:1px solid #ffb3bc; color:#6b0b17; }
+
+/* ========= Previews ========= */
+.preview-wrapper{ position:relative; }
+.card-img-top{
+  border-top-left-radius:var(--card-radius);
+  border-top-right-radius:var(--card-radius);
+}
+.remove-btn{
+  position:absolute; top:6px; right:6px;
+  background:#000B; color:#fff; border:none; border-radius:50%;
+  width:28px; height:28px; line-height:26px; font-size:16px;
+  box-shadow:0 2px 6px rgba(0,0,0,.35);
+}
+.remove-btn:hover{ background:#ff3b3b; }
+
+/* ========= Footer link ========= */
+footer a{ color:var(--brand-yellow); }
+footer a:hover{ color:#fff; text-decoration:underline; }
+footer {
+  background: var(--brand-peach);
+}
+
+/* Utilities */
+.break-word{ word-wrap:break-word; overflow-wrap:break-word; white-space:normal; }
+
+.pos-grid{
+  --cell: 42px;
+  display: grid;
+  grid-template-columns: repeat(3, var(--cell));
+  grid-template-rows: repeat(3, var(--cell));
+  gap: 8px;
+  width: max-content;
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+
+.pos-cell{
+  width: var(--cell);
+  height: var(--cell);
+  border: 2px dashed rgba(0,0,0,.15);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,.08) 0 3px, transparent 4px) center/100% 100% no-repeat,
+    repeating-linear-gradient(45deg, rgba(0,0,0,.03) 0 6px, rgba(0,0,0,.06) 6px 12px);
   cursor: pointer;
+  transition: transform .06s ease, box-shadow .12s ease, border-color .12s ease;
 }
-
-:root {
-  --bs-body-font-family: 'Ubuntu', sans-serif;
+.pos-cell:hover{ transform: translateY(-1px); }
+.pos-cell.active{
+  border-color: var(--brand-yellow);
+  box-shadow: 0 0 0 4px rgba(255,210,46,.35);
+  background:
+    radial-gradient(circle at 50% 50%, var(--brand-yellow) 0 4px, transparent 5px),
+    linear-gradient(180deg, #fff8c8, #fff);
 }
-
-.break-word {
-  word-wrap: break-word;   /* legacy support */
-  overflow-wrap: break-word; /* modern browsers */
-  white-space: normal;     /* allows wrapping */
+.pos-disabled{
+  opacity: .15;
+  pointer-events: none;
 }

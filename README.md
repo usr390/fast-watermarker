@@ -1,7 +1,7 @@
 # Fast Watermarker
 
 A lightweight web app built with **FastAPI** and **Bootstrap 5** to watermark images quickly.  
-Supports **text watermarks**, **logo watermarks**, and **batch uploads** (multiple images at once, returned as a `.zip`).
+Supports **text watermarks**, **logo watermarks**, and **batch uploads** (multiple images/videos at once, returned as a `.zip`).
 
 ---
 
