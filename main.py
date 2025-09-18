@@ -10,6 +10,8 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import tempfile
 import subprocess
 import shutil
+import json
+
 
 
 app = FastAPI()
@@ -367,12 +369,17 @@ def _probe_video_width(path: str) -> int:
         "ffprobe", "-v", "error",
         "-select_streams", "v:0",
         "-show_entries", "stream=width",
-        "-of", "csv=p=0", path,
+        "-of", "json", path,
     ]
     proc = subprocess.run(cmd, text=True, capture_output=True)
-    if proc.returncode != 0 or not proc.stdout.strip().isdigit():
+    if proc.returncode != 0:
         raise RuntimeError(f"ffprobe failed to get width: {proc.stderr or proc.stdout}")
-    return int(proc.stdout.strip())
+    try:
+        data = json.loads(proc.stdout)
+        width = int(data["streams"][0]["width"])
+        return width
+    except Exception:
+        raise RuntimeError(f"ffprobe parse error: {proc.stdout}")
 
 def _escape_drawtext(s: str) -> str:
     return s.replace("\\", "\\\\").replace(":", r"\:").replace("'", r"\'").replace('"', r'\"')
