@@ -105,17 +105,35 @@
   </style>
 
   <script>
-    const form = document.getElementById('wmForm');
-    const fileInput = document.getElementById('fileInput');
-    const submitBtn = document.getElementById('submitBtn');
-    const logoInput = document.getElementById('logoInput');
+    const form       = document.getElementById('wmForm');
+    const fileInput  = document.getElementById('fileInput');
+    const logoInput  = document.getElementById('logoInput');
+    const submitBtn  = document.getElementById('submitBtn');
 
-    const loadingEl = document.getElementById('statusLoading');
-    const successEl = document.getElementById('statusSuccess');
-    const errorEl = document.getElementById('statusError');
+    const loadingEl  = document.getElementById('statusLoading');
+    const successEl  = document.getElementById('statusSuccess');
+    const errorEl    = document.getElementById('statusError');
     const downloadLink = document.getElementById('downloadLink');
-    const outNameEl = document.getElementById('outName');
+    const outNameEl    = document.getElementById('outName');
 
+    const MAX_IMAGE_MB = 25;
+    const MAX_VIDEO_MB = 300;
+
+    // Position grid -> hidden input
+    (() => {
+      const grid = document.querySelector('.pos-grid');
+      const hidden = document.getElementById('positionInput');
+      if (!grid || !hidden) return;
+      grid.addEventListener('click', (e) => {
+        const btn = e.target.closest('.pos-cell[data-pos]');
+        if (!btn) return;
+        grid.querySelectorAll('.pos-cell').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        hidden.value = btn.getAttribute('data-pos'); // tl|tr|center|bl|br
+      });
+    })();
+
+    // Build previews
     fileInput.addEventListener('change', () => {
       const container = document.getElementById('previewContainer');
       container.innerHTML = '';
@@ -127,39 +145,129 @@
         return;
       }
 
-      [...files].forEach((f, index) => {
+      Array.from(files).forEach((f, index) => {
+        const mb = f.size / (1024 * 1024);
+        const isVideo = /^video\//.test(f.type);
+        const limit = isVideo ? MAX_VIDEO_MB : MAX_IMAGE_MB;
+        if (mb > limit) throw new Error(`${f.name} exceeds ${limit} MB.`);
+
         const col = document.createElement('div');
         col.className = 'col';
+
         const card = document.createElement('div');
         card.className = 'card h-100';
+
         const wrapper = document.createElement('div');
         wrapper.className = 'preview-wrapper';
 
-        const img = document.createElement('img');
-        img.alt = f.name;
-        img.className = 'card-img-top';
-        img.style.maxHeight = '140px';
-        img.style.objectFit = 'cover';
         const url = URL.createObjectURL(f);
-        img.src = url;
-        img.onload = () => URL.revokeObjectURL(url);
 
+        if (isVideo) {
+          // Shell for centered play button + snapshot
+          const shell = document.createElement('div');
+          shell.className = 'video-thumb';
+
+          // Visible image filled from first decoded frame
+          const img = document.createElement('img');
+          img.className = 'thumb-img card-img-top';
+          img.alt = f.name;
+          shell.appendChild(img);
+
+          // Hidden video used to extract a frame, then for playback when clicked
+          const video = document.createElement('video');
+          video.src = url;
+          video.preload = 'metadata';
+          video.playsInline = true;
+          video.setAttribute('playsinline', '');
+          video.muted = true;
+          video.controls = false;
+          video.style.display = 'none';
+          video.className = 'card-img-top';
+          shell.appendChild(video);
+
+          // Centered play overlay
+          const overlay = document.createElement('button');
+          overlay.type = 'button';
+          overlay.className = 'play-overlay';
+          overlay.innerHTML = `
+            <svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="27" cy="27" r="26" fill="rgba(0,0,0,.55)" stroke="white" stroke-width="2"/>
+              <polygon points="22,17 22,37 38,27" fill="white"/>
+            </svg>`;
+          shell.appendChild(overlay);
+
+          // Draw decoded frame into the <img>
+          function drawThumb() {
+            const w = video.videoWidth, h = video.videoHeight;
+            if (!w || !h) return;
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            try {
+              ctx.drawImage(video, 0, 0, w, h);
+              img.src = canvas.toDataURL('image/jpeg', 0.72);
+            } catch {}
+          }
+
+          function makeThumbAfterSeek() {
+            if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+              video.requestVideoFrameCallback(() => { drawThumb(); });
+            } else {
+              const onSeeked = () => {
+                video.removeEventListener('seeked', onSeeked);
+                if (video.readyState >= 2) drawThumb();
+                else setTimeout(drawThumb, 50);
+              };
+              video.addEventListener('seeked', onSeeked);
+            }
+          }
+
+          video.addEventListener('loadedmetadata', () => {
+            const t = Math.min(0.1, (video.duration || 1) - 0.001);
+            makeThumbAfterSeek();
+            try { video.currentTime = t; }
+            catch { setTimeout(() => { try { video.currentTime = t; } catch {} }, 30); }
+          }, { once: true });
+
+          overlay.addEventListener('click', () => {
+            overlay.remove();
+            img.style.display = 'none';
+            video.style.display = '';
+            video.controls = true;
+            video.muted = false; // optional
+            video.play().catch(() => {});
+          });
+
+          wrapper.appendChild(shell);
+
+          // Revoke URL when card removed
+          wrapper.addEventListener('DOMNodeRemoved', () => URL.revokeObjectURL(url), { once: true });
+
+        } else {
+          const img = document.createElement('img');
+          img.alt = f.name;
+          img.className = 'card-img-top';
+          img.style.height = '140px';
+          img.style.objectFit = 'cover';
+          img.src = url;
+          img.onload = () => URL.revokeObjectURL(url);
+          wrapper.appendChild(img);
+        }
+
+        // Remove button
         const removeBtn = document.createElement('button');
         removeBtn.className = 'remove-btn';
         removeBtn.innerHTML = '×';
         removeBtn.title = 'Remove file';
         removeBtn.addEventListener('click', () => {
           const dt = new DataTransfer();
-          [...fileInput.files].forEach((file, i) => {
-            if (i !== index) dt.items.add(file);
-          });
+          Array.from(fileInput.files).forEach((file, i) => { if (i !== index) dt.items.add(file); });
           fileInput.files = dt.files;
           fileInput.dispatchEvent(new Event('change'));
         });
-
-        wrapper.appendChild(img);
         wrapper.appendChild(removeBtn);
 
+        // Caption
         const cap = document.createElement('div');
         cap.className = 'card-body py-2';
         cap.innerHTML = `<small class="text-truncate d-block">${f.name}</small>`;
@@ -171,6 +279,7 @@
       });
     });
 
+    // Logo preview
     logoInput.addEventListener('change', () => {
       const container = document.getElementById('logoPreviewContainer');
       container.innerHTML = '';
@@ -184,7 +293,9 @@
       img.alt = 'Logo preview';
       img.className = 'img-thumbnail mt-2';
       img.style.maxHeight = '120px';
-      img.src = URL.createObjectURL(file);
+      const url = URL.createObjectURL(file);
+      img.src = url;
+      img.onload = () => URL.revokeObjectURL(url);
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'remove-btn';
@@ -200,17 +311,14 @@
       container.appendChild(wrapper);
     });
 
-    function show(el) { el.classList.remove('d-none'); }
-    function hide(el) { el.classList.add('d-none'); }
+    // Submit
+    function show(el){ el.classList.remove('d-none'); }
+    function hide(el){ el.classList.add('d-none'); }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-
-      hide(successEl);
-      hide(errorEl);
-      show(loadingEl);
+      hide(successEl); hide(errorEl); show(loadingEl);
       submitBtn.disabled = true;
-
       try {
         const fd = new FormData(form);
         const res = await fetch(form.action || '/upload-multi', { method: 'POST', body: fd });
@@ -218,13 +326,11 @@
           const txt = await res.text().catch(() => '');
           throw new Error(txt || `Upload failed with status ${res.status}`);
         }
-
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         downloadLink.href = url;
         downloadLink.download = 'watermarked.zip';
         outNameEl.textContent = 'watermarked.zip';
-
         hide(loadingEl); show(successEl);
       } catch (err) {
         hide(loadingEl);
@@ -234,27 +340,5 @@
         submitBtn.disabled = false;
       }
     });
-      (function(){
-    const posGrid = document.querySelector('.pos-grid');
-    const hidden = document.getElementById('positionInput');
-    if(!posGrid || !hidden) return;
-
-    posGrid.addEventListener('click', (e) => {
-      const btn = e.target.closest('.pos-cell[data-pos]');
-      if(!btn) return;
-      posGrid.querySelectorAll('.pos-cell').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      hidden.value = btn.getAttribute('data-pos');
-    });
-  })();
-    const opacityInput = document.getElementById('opacityInput');
-    const opacityValue = document.getElementById('opacityValue');
-    if (opacityInput && opacityValue) {
-      const fmt = v => Number(v).toFixed(2);
-      opacityValue.textContent = fmt(opacityInput.value);
-      opacityInput.addEventListener('input', () => {
-        opacityValue.textContent = fmt(opacityInput.value);
-      });
-    }
   </script>
 {% endblock %}

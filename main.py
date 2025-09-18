@@ -12,8 +12,6 @@ import subprocess
 import shutil
 import json
 
-
-
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -25,6 +23,20 @@ IMAGE_MIME_PREFIXES = ("image/",)
 VIDEO_MIME_PREFIXES = ("video/",)
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm"}
+
+MAX_REQUEST_BYTES = 600 * 1024 * 1024  # 600MB
+MAX_IMAGE_MB = 25
+MAX_IMAGE_PIXELS = 12_000_000              # 12MP
+MAX_VIDEO_MB = 300
+MAX_VIDEO_DURATION_SEC = 10 * 60
+
+
+@app.middleware("http")
+async def reject_large_requests(request, call_next):
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > MAX_REQUEST_BYTES:
+        return HTMLResponse("Request too large", status_code=413)
+    return await call_next(request)
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
@@ -82,6 +94,21 @@ async def upload_multi(
     with ZipFile(zip_buf, "w", ZIP_DEFLATED) as zf:
         for f in files:
             raw = await f.read()
+
+            if _is_image(f):
+                with Image.open(io.BytesIO(raw)) as im:
+                    im = ImageOps.exif_transpose(im)
+                    if im.width * im.height > MAX_IMAGE_PIXELS:
+                        raise HTTPException(413, f"{f.filename}: image too large (>{MAX_IMAGE_PIXELS} pixels).")
+            elif _is_video(f):
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".bin") as tf:
+                    tf.write(raw); tf.flush()
+                    sz = os.path.getsize(tf.name)
+                    _reject_if_too_large(f.filename, sz, True)
+                    meta = _probe_video_meta(tf.name)
+                    if meta["duration"] > MAX_VIDEO_DURATION_SEC:
+                        raise HTTPException(413, f"{f.filename}: video longer than {MAX_VIDEO_DURATION_SEC//60} minutes.")
+            
             fname = f.filename or "file"
             try:
                 if _is_image(f):
@@ -384,3 +411,29 @@ def _probe_video_width(path: str) -> int:
 def _escape_drawtext(s: str) -> str:
     return s.replace("\\", "\\\\").replace(":", r"\:").replace("'", r"\'").replace('"', r'\"')
 
+
+
+def _reject_if_too_large(filename: str, size_bytes: int, is_video: bool):
+    mb = size_bytes / (1024*1024)
+    if is_video and mb > MAX_VIDEO_MB:
+        raise HTTPException(413, f"{filename}: exceeds {MAX_VIDEO_MB} MB")
+    if not is_video and mb > MAX_IMAGE_MB:
+        raise HTTPException(413, f"{filename}: exceeds {MAX_IMAGE_MB} MB")
+
+def _probe_video_meta(path: str) -> dict:
+    # width,height,duration in seconds
+    cmd = ["ffprobe","-v","error","-select_streams","v:0",
+           "-show_entries","stream=width,height,duration",
+           "-of","default=noprint_wrappers=1:nokey=0", path]
+    p = subprocess.run(cmd, text=True, capture_output=True, check=False)
+    if p.returncode != 0:
+        raise RuntimeError(f"ffprobe failed: {p.stderr or p.stdout}")
+    meta = {}
+    for line in p.stdout.splitlines():
+        if "=" in line:
+            k,v = line.split("=",1)
+            meta[k.strip()] = v.strip()
+    meta["width"] = int(float(meta.get("width","0") or 0))
+    meta["height"] = int(float(meta.get("height","0") or 0))
+    meta["duration"] = float(meta.get("duration","0") or 0.0)
+    return meta
