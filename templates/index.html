@@ -24,6 +24,7 @@
     <div class="mb-3">
       <label class="form-label">Text watermark</label>
       <input id="wmText" class="form-control" type="text" name="text" placeholder="© mybrand">
+      <small id="wmReqMsg" class="text-danger d-none">Add a logo or enter text to continue.</small>
     </div>
     <hr class="my-4">
     <div class="mb-3">
@@ -118,6 +119,25 @@
 
     const MAX_IMAGE_MB = 25;
     const MAX_VIDEO_MB = 300;
+
+    const wmText   = document.getElementById('wmText');
+    const wmReqMsg = document.getElementById('wmReqMsg');
+
+    // Show message only AFTER the user tries to submit once
+    let triedSubmit = false;
+
+    function hasLogo() { return logoInput?.files?.length > 0; }
+    function hasText() { return wmText?.value.trim().length > 0; }
+
+    function showRequirementIfNeeded() {
+      if (!triedSubmit) return;          // don’t show on page load
+      const ok = hasLogo() || hasText();
+      wmReqMsg?.classList.toggle('d-none', ok);
+    }
+
+    // While typing/choosing, auto-hide the message AFTER a failed attempt
+    wmText?.addEventListener('input', showRequirementIfNeeded);
+    logoInput?.addEventListener('change', showRequirementIfNeeded);
 
     // Position grid -> hidden input
     (() => {
@@ -317,8 +337,22 @@
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      hide(successEl); hide(errorEl); show(loadingEl);
+      const ok = hasLogo() || hasText();
+      if (!ok) {
+        triedSubmit = true;
+        wmReqMsg?.classList.remove('d-none');  // show only now
+        wmText?.focus();
+        return;
+      }
+
+      const show = (el) => el.classList.remove('d-none');
+      const hide = (el) => el.classList.add('d-none');
+
+      hide(successEl);
+      hide(errorEl);
+      show(loadingEl);
       submitBtn.disabled = true;
+
       try {
         const fd = new FormData(form);
         const res = await fetch(form.action || '/upload-multi', { method: 'POST', body: fd });
@@ -326,12 +360,15 @@
           const txt = await res.text().catch(() => '');
           throw new Error(txt || `Upload failed with status ${res.status}`);
         }
+
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         downloadLink.href = url;
         downloadLink.download = 'watermarked.zip';
         outNameEl.textContent = 'watermarked.zip';
-        hide(loadingEl); show(successEl);
+
+        hide(loadingEl);
+        show(successEl);
       } catch (err) {
         hide(loadingEl);
         errorEl.textContent = err?.message || 'Something went wrong.';
@@ -340,5 +377,6 @@
         submitBtn.disabled = false;
       }
     });
+
   </script>
 {% endblock %}
