@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException, Request, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageOps
+from PIL import Image, ImageEnhance, ImageOps
 import io
 import os
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -55,11 +55,11 @@ async def upload(
     opacity = max(0.05, min(1.0, float(opacity)))
     if logo is not None and logo.filename:
         logo_bytes = await logo.read()
-        output = add_image_watermark(base_bytes, logo_bytes, scale=scale, opacity=opacity, position=position)
+        output = add_image_watermark_ffmpeg(base_bytes, logo_bytes, scale=scale, opacity=opacity, position=position)
     else:
         if not text:
             return StreamingResponse(io.BytesIO(base_bytes), media_type=file.content_type or "application/octet-stream")
-        output = add_text_watermark(base_bytes, text, scale, position, opacity)
+        output = add_text_watermark_ffmpeg(base_bytes, text, scale, position, opacity)
 
     return StreamingResponse(output, media_type="image/jpeg")
 
@@ -113,9 +113,9 @@ async def upload_multi(
             try:
                 if _is_image(f):
                     if has_logo:
-                        out = add_image_watermark(raw, logo_bytes, scale=scale, opacity=op, position=position)
+                        out = add_image_watermark_ffmpeg(raw, logo_bytes, scale=scale, opacity=op, position=position)
                     else:
-                        out = add_text_watermark(raw, text, scale, position, op)
+                        out = add_text_watermark_ffmpeg(raw, text, scale, position, op)
                     out_name = f"watermarked_{safe_name(fname, suffix='.jpg')}"
                     zf.writestr(out_name, out.getvalue())
 
@@ -142,86 +142,6 @@ async def upload_multi(
 def _text_px_from_scale(base_w: int, scale: float) -> int:
     return max(18, int(base_w * 0.06 * (scale / 0.35)))
 
-def add_text_watermark(
-        img_bytes: bytes, 
-        text: str, 
-        scale: float,
-        position: str = "center",
-        opacity: float = 0.9) -> io.BytesIO:
-    base = ImageOps.exif_transpose(Image.open(io.BytesIO(img_bytes))).convert("RGBA")
-    W, H = base.size
-
-    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-
-    try:
-        font_size = _text_px_from_scale(W, scale)
-        font = ImageFont.truetype(FONT_PATH, font_size)
-    except:
-        font = ImageFont.load_default()
-
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-
-    margin = 16
-    pos = (position or "center").lower()
-    if     pos == "tl": x, y = margin, margin
-    elif   pos == "tr": x, y = W - tw - margin, margin
-    elif   pos == "bl": x, y = margin, H - th - margin
-    elif   pos == "center": x, y = (W - tw)//2, (H - th)//2
-    else:  x, y = W - tw - margin, H - th - margin
-
-    a_fill   = int(255 * opacity)
-    a_shadow = int(255 * min(1.0, opacity * 0.7))
-
-    draw.text((x+2, y+2), text, font=font, fill=(0, 0, 0, a_shadow))
-    draw.text((x,   y  ), text, font=font, fill=(255, 255, 255, a_fill))
-
-    watermarked = Image.alpha_composite(base, overlay).convert("RGB")
-
-    buf = io.BytesIO()
-    watermarked.save(buf, format="JPEG", quality=92)
-    buf.seek(0)
-    return buf
-
-def add_image_watermark(
-        img_bytes: bytes, 
-        logo_bytes: bytes, 
-        scale=0.35, 
-        opacity=0.85,
-        position: str = "center") -> io.BytesIO:
-    base = ImageOps.exif_transpose(Image.open(io.BytesIO(img_bytes))).convert("RGBA")
-    logo = ImageOps.exif_transpose(Image.open(io.BytesIO(logo_bytes))).convert("RGBA")
-
-
-    W, H = base.size
-
-    target_w = max(1, int(W * float(scale)))
-    target_h = max(1, int(logo.height * (target_w / logo.width)))
-    logo = logo.resize((target_w, target_h), Image.LANCZOS)
-
-    if has_transparency(logo):
-        logo = scale_existing_alpha(logo, opacity)
-    else:
-        logo = set_uniform_opacity(logo, opacity)
-
-    lw, lh = logo.size
-    margin = 16
-    pos = (position or "center").lower()
-    if     pos == "tl": x, y = margin, margin
-    elif   pos == "tr": x, y = W - lw - margin, margin
-    elif   pos == "bl": x, y = margin, H - lh - margin
-    elif   pos == "center": x, y = (W - lw)//2, (H - lh)//2
-    else:  x, y = W - lw - margin, H - lh - margin
-
-    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    overlay.paste(logo, (x, y), mask=logo)
-
-    out_img = Image.alpha_composite(base, overlay).convert("RGB")
-    buf = io.BytesIO()
-    out_img.save(buf, format="JPEG", quality=92)
-    buf.seek(0)
-    return buf
 
 def has_transparency(im: Image.Image) -> bool:
     if im.mode in ("RGBA", "LA"):
@@ -421,7 +341,6 @@ def _reject_if_too_large(filename: str, size_bytes: int, is_video: bool):
         raise HTTPException(413, f"{filename}: exceeds {MAX_IMAGE_MB} MB")
 
 def _probe_video_meta(path: str) -> dict:
-    # width,height,duration in seconds
     cmd = ["ffprobe","-v","error","-select_streams","v:0",
            "-show_entries","stream=width,height,duration",
            "-of","default=noprint_wrappers=1:nokey=0", path]
@@ -437,3 +356,138 @@ def _probe_video_meta(path: str) -> dict:
     meta["height"] = int(float(meta.get("height","0") or 0))
     meta["duration"] = float(meta.get("duration","0") or 0.0)
     return meta
+
+def add_image_watermark_ffmpeg(
+    img_bytes: bytes, 
+    logo_bytes: bytes, 
+    scale: float = 0.35, 
+    opacity: float = 0.85, 
+    position: str = "center"
+) -> io.BytesIO:
+    _which_ffmpeg()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as img_f, \
+         tempfile.NamedTemporaryFile(delete=False, suffix=".png") as logo_f, \
+         tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as out_f:
+        img_f.write(img_bytes); img_f.flush()
+        logo_f.write(logo_bytes); logo_f.flush()
+        in_img, in_logo, out_path = img_f.name, logo_f.name, out_f.name
+
+    img_w = _probe_image_width(in_img)
+    target_w = max(1, int(img_w * float(scale)))
+    pos_expr = _overlay_pos_expr(position)
+    filter_complex = (
+        f"[1:v]scale={target_w}:-1:flags=fast_bilinear,format=rgba,colorchannelmixer=aa={opacity}[lg];"
+        f"[0:v][lg]overlay={pos_expr}[outv]"
+    )
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", in_img, "-i", in_logo,
+        "-filter_complex", filter_complex,
+        "-map", "[outv]",
+        "-q:v", "2",  # High quality JPEG
+        out_path
+    ]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True)
+        with open(out_path, "rb") as f:
+            buf = io.BytesIO(f.read())
+            buf.seek(0)
+            return buf
+    finally:
+        for p in (in_img, in_logo, out_path):
+            try: os.remove(p)
+            except: pass
+
+def _probe_image_width(path: str) -> int:
+    cmd = [
+        "ffprobe", "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width",
+        "-of", "json", path,
+    ]
+    proc = subprocess.run(cmd, text=True, capture_output=True)
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffprobe failed to get image width: {proc.stderr or proc.stdout}")
+    try:
+        data = json.loads(proc.stdout)
+        width = int(data["streams"][0]["width"])
+        return width
+    except Exception:
+        raise RuntimeError(f"ffprobe parse error: {proc.stdout}")
+    
+def _escape_drawtext(s: str) -> str:
+    if s is None:
+        return ""
+    return s.replace("\\", r"\\").replace("'", r"\'").replace("\n", r"\\n")
+
+def add_text_watermark_ffmpeg(
+    img_bytes: bytes,
+    text: str,
+    scale: float,
+    position: str = "center",
+    opacity: float = 0.9
+) -> io.BytesIO:
+    _which_ffmpeg()
+    if not os.path.exists(FONT_PATH):
+        raise RuntimeError(f"Font not found at {FONT_PATH}")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as img_f, \
+         tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as out_f:
+        img_f.write(img_bytes)
+        img_f.flush()
+        in_img, out_path = img_f.name, out_f.name
+
+    try:
+        W = _probe_image_width(in_img)
+        font_size = _text_px_from_scale(W, scale)
+
+        margin = 16
+        pos = (position or "center").lower()
+        if   pos == "tl":
+            x_expr, y_expr = f"{margin}", f"{margin}"
+        elif pos == "tr":
+            x_expr, y_expr = f"(w-text_w)-{margin}", f"{margin}"
+        elif pos == "bl":
+            x_expr, y_expr = f"{margin}", f"(h-text_h)-{margin}"
+        elif pos == "center":
+            x_expr, y_expr = "(w-text_w)/2", "(h-text_h)/2"
+        else:  # "br" or unknown -> bottom-right
+            x_expr, y_expr = f"(w-text_w)-{margin}", f"(h-text_h)-{margin}"
+
+        op = max(0.05, min(1.0, float(opacity)))
+        op_shadow = min(1.0, op * 0.7)
+
+        safe_text = _escape_drawtext(text or "")
+
+        vf = (
+            f"drawtext=fontfile='{FONT_PATH}':text='{safe_text}':"
+            f"fontsize={font_size}:fontcolor=black@{op_shadow}:"
+            f"x=({x_expr})+2:y=({y_expr})+2,"
+            f"drawtext=fontfile='{FONT_PATH}':text='{safe_text}':"
+            f"fontsize={font_size}:fontcolor=white@{op}:"
+            f"x={x_expr}:y={y_expr}"
+        )
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", in_img,
+            "-vf", vf,
+            "-frames:v", "1",
+            "-q:v", "2",
+            out_path
+        ]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+
+        with open(out_path, "rb") as f:
+            buf = io.BytesIO(f.read())
+            buf.seek(0)
+            return buf
+
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"FFmpeg failed: {e.stderr}") from e
+    finally:
+        for p in (in_img, out_path):
+            try:
+                os.remove(p)
+            except:
+                pass
