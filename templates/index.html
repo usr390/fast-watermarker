@@ -18,12 +18,17 @@
 
     <div class="mb-3">
       <label class="form-label">Logo watermark</label>
-      <input id="logoInput" class="visually-hidden" type="file" name="logo" accept="image/png,image/*">
+      <input id="logoInput" class="visually-hidden" type="file" name="logo" accept="image/svg+xml,image/png,image/*">
       <div id="logoDropZone" class="dropzone dropzone--small" role="button" tabindex="0" aria-label="Drop a logo or click to browse">
-        <div class="dz-icon">🖼️</div>
+        <div class="dz-icon">📂</div>
         <div class="dz-title">Drag & drop a logo</div>
         <div class="dz-sub">or <span class="dz-link">browse</span> your device</div>
       </div>
+
+      <p class="ai-logo-cta">
+        <button type="button" class="linklike" id="aiLogoOpenBtn">Have AI make one for me!</button>
+      </p>
+
       <div id="logoPreviewContainer" class="mt-2"></div>
     </div>
 
@@ -36,30 +41,25 @@
       <input id="wmText" class="form-control" type="text" name="text" placeholder="© mybrand">
       <small id="wmReqMsg" class="text-danger d-none">Add a logo or enter text to continue.</small>
     </div>
+
     <hr class="my-4">
+
     <div class="mb-3">
       <label class="form-label">Watermark size</label>
-      <input class="form-range"
-            type="range"
-            min="0.20" max="0.80" step="0.05"
-            name="scale" value="0.35">
+      <input class="form-range" type="range" min="0.20" max="0.80" step="0.05" name="scale" value="0.35">
     </div>
+
     <div class="mb-3">
       <label class="form-label d-flex align-items-center justify-content-between">
         <span>Watermark opacity</span>
       </label>
-      <input class="form-range"
-            type="range"
-            min="0.10" max="1.00" step="0.05"
-            name="opacity" id="opacityInput" value="0.90">
+      <input class="form-range" type="range" min="0.10" max="1.00" step="0.05" name="opacity" id="opacityInput" value="0.90">
     </div>
+
     <div class="mb-3">
       <label class="form-label d-block">Watermark position</label>
-
-      <!-- hidden that actually gets submitted -->
       <input type="hidden" name="position" id="positionInput" value="center">
 
-      <!-- 3x3 grid, we only enable the four corners + center -->
       <div class="pos-grid" role="group" aria-label="Watermark position">
         <button type="button" class="pos-cell" data-pos="tl" aria-label="Top left"></button>
         <button type="button" class="pos-cell pos-disabled"></button>
@@ -72,10 +72,12 @@
         <button type="button" class="pos-cell" data-pos="bl" aria-label="Bottom left"></button>
         <button type="button" class="pos-cell pos-disabled"></button>
         <button type="button" class="pos-cell" data-pos="br" aria-label="Bottom right"></button>
+      </div>
+      <hr class="my-4">
     </div>
-    <hr class="my-4">
-    </div>
+
     <button id="submitBtn" class="btn btn-primary" type="submit">Upload</button>
+
     <div id="statusLoading" class="alert alert-info d-none mt-3 mb-0">
       <div class="d-flex align-items-center gap-2">
         <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
@@ -89,458 +91,489 @@
     <div id="statusError" class="alert alert-danger d-none mt-3 mb-0"></div>
   </form>
 
+  <div class="ai-modal-backdrop" id="aiLogoModal" hidden aria-hidden="true">
+    <div class="ai-modal" role="dialog" aria-modal="true" aria-labelledby="aiLogoTitle">
+      <header class="ai-modal-header">
+        <h3 id="aiLogoTitle">FastWatermarker AI</h3>
+        <button type="button" class="ai-iconbtn" id="aiLogoCloseBtn" aria-label="Close">✕</button>
+      </header>
+
+      <form id="aiLogoForm" class="ai-modal-body" role="form">
+        <label class="field">
+          <span>Logo text</span>
+          <input name="text" type="text" placeholder="e.g., mybrand" required />
+        </label>
+
+        <label class="field">
+          <span>Colors</span>
+          <input name="colors" type="text" placeholder="e.g., red, white, black" />
+          <small>Comma-separated. You can paste hex codes too.</small>
+        </label>
+
+        <label class="field">
+          <span>Style</span>
+          <input name="style" type="text" placeholder="e.g., modern minimal badge, hand-drawn vibe" />
+          <small>Describe the look you want (keywords, phrases, anything).</small>
+        </label>
+
+        <div class="ai-actions">
+          <button type="button" id="aiLogoPreviewBtn" class="btn" >
+            <span class="btn-label">Generate preview</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+          </button>          
+          <button type="button" id="aiLogoUseBtn" disabled>Use this</button>
+        </div>
+
+        <div class="ai-preview" id="aiLogoPreview" aria-live="polite">
+          <div class="ai-preview-card" id="aiLogoPreviewCard">
+            <img id="aiLogoPreviewImg" alt="AI preview" style="max-width:100%;display:none"/>
+            <div id="aiLogoPlaceholder" class="ai-placeholder" aria-hidden="true">
+              Image Preview Here
+            </div>
+          </div>
+        </div>
+        
+      </form>
+    </div>
+  </div>
+
   <style>
-    .remove-btn {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      cursor: pointer;
-      padding: 0;
-    }
-    .remove-btn:hover {
-      background: rgba(255, 0, 0, 0.8);
-    }
-    .preview-wrapper {
-      position: relative;
-    }
+    .remove-btn { position: absolute; top: 5px; right: 5px; background: rgba(0, 0, 0, 0.7); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; padding: 0; }
+    .remove-btn:hover { background: rgba(255, 0, 0, 0.8); }
+    .preview-wrapper { position: relative; }
   </style>
 
   <script>
-    const form       = document.getElementById('wmForm');
-    const fileInput  = document.getElementById('fileInput');
-    const logoInput  = document.getElementById('logoInput');
-    const submitBtn  = document.getElementById('submitBtn');
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('wmForm');
+      const fileInput = document.getElementById('fileInput');
+      const logoInput = document.getElementById('logoInput');
+      const submitBtn = document.getElementById('submitBtn');
 
-    const loadingEl  = document.getElementById('statusLoading');
-    const successEl  = document.getElementById('statusSuccess');
-    const errorEl    = document.getElementById('statusError');
-    const downloadLink = document.getElementById('downloadLink');
-    const outNameEl    = document.getElementById('outName');
+      const loadingEl = document.getElementById('statusLoading');
+      const successEl = document.getElementById('statusSuccess');
+      const errorEl = document.getElementById('statusError');
+      const downloadLink = document.getElementById('downloadLink');
+      const outNameEl = document.getElementById('outName');
 
-    const MAX_IMAGE_MB = 25;
-    const MAX_VIDEO_MB = 300;
+      const MAX_IMAGE_MB = 25;
+      const MAX_VIDEO_MB = 300;
 
-    const wmText   = document.getElementById('wmText');
-    const wmReqMsg = document.getElementById('wmReqMsg');
+      const wmText = document.getElementById('wmText');
+      const wmReqMsg = document.getElementById('wmReqMsg');
 
-    // Show message only AFTER the user tries to submit once
-    let triedSubmit = false;
+      let triedSubmit = false;
 
-    function hasLogo() { return logoInput?.files?.length > 0; }
-    function hasText() { return wmText?.value.trim().length > 0; }
+      function hasLogo() { return logoInput?.files?.length > 0; }
+      function hasText() { return wmText?.value.trim().length > 0; }
 
-    function showRequirementIfNeeded() {
-      if (!triedSubmit) return;          // don’t show on page load
-      const ok = hasLogo() || hasText();
-      wmReqMsg?.classList.toggle('d-none', ok);
-    }
-
-    // While typing/choosing, auto-hide the message AFTER a failed attempt
-    wmText?.addEventListener('input', showRequirementIfNeeded);
-    logoInput?.addEventListener('change', showRequirementIfNeeded);
-
-    // Position grid -> hidden input
-    (() => {
-      const grid = document.querySelector('.pos-grid');
-      const hidden = document.getElementById('positionInput');
-      if (!grid || !hidden) return;
-      grid.addEventListener('click', (e) => {
-        const btn = e.target.closest('.pos-cell[data-pos]');
-        if (!btn) return;
-        grid.querySelectorAll('.pos-cell').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        hidden.value = btn.getAttribute('data-pos'); // tl|tr|center|bl|br
-      });
-    })();
-
-    // Build previews
-    fileInput.addEventListener('change', () => {
-      const container = document.getElementById('previewContainer');
-      container.innerHTML = '';
-      const files = fileInput.files || [];
-
-      if (files.length > 20) {
-        alert("You can only upload up to 20 files at once.");
-        fileInput.value = "";
-        return;
+      function showRequirementIfNeeded() {
+        if (!triedSubmit) return;
+        const ok = hasLogo() || hasText();
+        wmReqMsg?.classList.toggle('d-none', ok);
       }
 
-      Array.from(files).forEach((f, index) => {
-        const mb = f.size / (1024 * 1024);
-        const isVideo = /^video\//.test(f.type);
-        const limit = isVideo ? MAX_VIDEO_MB : MAX_IMAGE_MB;
-        if (mb > limit) throw new Error(`${f.name} exceeds ${limit} MB.`);
+      wmText?.addEventListener('input', showRequirementIfNeeded);
+      logoInput?.addEventListener('change', showRequirementIfNeeded);
 
-        const col = document.createElement('div');
-        col.className = 'col';
-
-        const card = document.createElement('div');
-        card.className = 'card h-100';
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'preview-wrapper';
-
-        const url = URL.createObjectURL(f);
-
-        if (isVideo) {
-          // Shell for centered play button + snapshot
-          const shell = document.createElement('div');
-          shell.className = 'video-thumb';
-
-          // Visible image filled from first decoded frame
-          const img = document.createElement('img');
-          img.className = 'thumb-img card-img-top';
-          img.alt = f.name;
-          shell.appendChild(img);
-
-          // Hidden video used to extract a frame, then for playback when clicked
-          const video = document.createElement('video');
-          video.src = url;
-          video.preload = 'metadata';
-          video.playsInline = true;
-          video.setAttribute('playsinline', '');
-          video.muted = true;
-          video.controls = false;
-          video.style.display = 'none';
-          video.className = 'card-img-top';
-          shell.appendChild(video);
-
-          // Centered play overlay
-          const overlay = document.createElement('button');
-          overlay.type = 'button';
-          overlay.className = 'play-overlay';
-          overlay.innerHTML = `
-            <svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <circle cx="27" cy="27" r="26" fill="rgba(0,0,0,.55)" stroke="white" stroke-width="2"/>
-              <polygon points="22,17 22,37 38,27" fill="white"/>
-            </svg>`;
-          shell.appendChild(overlay);
-
-          // Draw decoded frame into the <img>
-          function drawThumb() {
-            const w = video.videoWidth, h = video.videoHeight;
-            if (!w || !h) return;
-            const canvas = document.createElement('canvas');
-            canvas.width = w; canvas.height = h;
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            try {
-              ctx.drawImage(video, 0, 0, w, h);
-              img.src = canvas.toDataURL('image/jpeg', 0.72);
-            } catch {}
-          }
-
-          function makeThumbAfterSeek() {
-            if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
-              video.requestVideoFrameCallback(() => { drawThumb(); });
-            } else {
-              const onSeeked = () => {
-                video.removeEventListener('seeked', onSeeked);
-                if (video.readyState >= 2) drawThumb();
-                else setTimeout(drawThumb, 50);
-              };
-              video.addEventListener('seeked', onSeeked);
-            }
-          }
-
-          video.addEventListener('loadedmetadata', () => {
-            const t = Math.min(0.1, (video.duration || 1) - 0.001);
-            makeThumbAfterSeek();
-            try { video.currentTime = t; }
-            catch { setTimeout(() => { try { video.currentTime = t; } catch {} }, 30); }
-          }, { once: true });
-
-          overlay.addEventListener('click', () => {
-            overlay.remove();
-            img.style.display = 'none';
-            video.style.display = '';
-            video.controls = true;
-            video.muted = false; // optional
-            video.play().catch(() => {});
-          });
-
-          wrapper.appendChild(shell);
-
-          // Revoke URL when card removed
-          wrapper.addEventListener('DOMNodeRemoved', () => URL.revokeObjectURL(url), { once: true });
-
-        } else {
-          const img = document.createElement('img');
-          img.alt = f.name;
-          img.className = 'card-img-top';
-          img.style.height = '140px';
-          img.style.objectFit = 'cover';
-          img.src = url;
-          img.onload = () => URL.revokeObjectURL(url);
-          wrapper.appendChild(img);
-        }
-
-        // Remove button
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'remove-btn';
-        removeBtn.innerHTML = '×';
-        removeBtn.title = 'Remove file';
-        removeBtn.addEventListener('click', () => {
-          const dt = new DataTransfer();
-          Array.from(fileInput.files).forEach((file, i) => { if (i !== index) dt.items.add(file); });
-          fileInput.files = dt.files;
-          fileInput.dispatchEvent(new Event('change'));
+      (() => {
+        const grid = document.querySelector('.pos-grid');
+        const hidden = document.getElementById('positionInput');
+        if (!grid || !hidden) return;
+        grid.addEventListener('click', (e) => {
+          const btn = e.target.closest('.pos-cell[data-pos]');
+          if (!btn) return;
+          grid.querySelectorAll('.pos-cell').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          hidden.value = btn.getAttribute('data-pos');
         });
-        wrapper.appendChild(removeBtn);
+      })();
 
-        // Caption
-        const cap = document.createElement('div');
-        cap.className = 'card-body py-2';
-        cap.innerHTML = `<small class="text-truncate d-block">${f.name}</small>`;
-
-        card.appendChild(wrapper);
-        card.appendChild(cap);
-        col.appendChild(card);
-        container.appendChild(col);
-      });
-    });
-
-    // Logo preview
-    logoInput.addEventListener('change', () => {
-      const container = document.getElementById('logoPreviewContainer');
-      container.innerHTML = '';
-      const file = logoInput.files?.[0];
-      if (!file) return;
-
-      const wrapper = document.createElement('div');
-      wrapper.className = 'preview-wrapper';
-
-      const img = document.createElement('img');
-      img.alt = 'Logo preview';
-      img.className = 'img-thumbnail mt-2';
-      img.style.maxHeight = '120px';
-      const url = URL.createObjectURL(file);
-      img.src = url;
-      img.onload = () => URL.revokeObjectURL(url);
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'remove-btn';
-      removeBtn.innerHTML = '×';
-      removeBtn.title = 'Remove logo';
-      removeBtn.addEventListener('click', () => {
-        logoInput.value = '';
+      fileInput.addEventListener('change', () => {
+        const container = document.getElementById('previewContainer');
         container.innerHTML = '';
+        const files = fileInput.files || [];
+
+        if (files.length > 20) {
+          alert("You can only upload up to 20 files at once.");
+          fileInput.value = "";
+          return;
+        }
+
+        Array.from(files).forEach((f, index) => {
+          const mb = f.size / (1024 * 1024);
+          const isVideo = /^video\//.test(f.type);
+          const limit = isVideo ? MAX_VIDEO_MB : MAX_IMAGE_MB;
+          if (mb > limit) throw new Error(`${f.name} exceeds ${limit} MB.`);
+
+          const col = document.createElement('div'); col.className = 'col';
+          const card = document.createElement('div'); card.className = 'card h-100';
+          const wrapper = document.createElement('div'); wrapper.className = 'preview-wrapper';
+
+          const url = URL.createObjectURL(f);
+
+          if (isVideo) {
+            const shell = document.createElement('div'); shell.className = 'video-thumb';
+
+            const img = document.createElement('img');
+            img.className = 'thumb-img card-img-top';
+            img.alt = f.name;
+            shell.appendChild(img);
+
+            const video = document.createElement('video');
+            video.src = url; video.preload = 'metadata'; video.playsInline = true;
+            video.setAttribute('playsinline',''); video.muted = true; video.controls = false;
+            video.style.display = 'none'; video.className = 'card-img-top';
+            shell.appendChild(video);
+
+            const overlay = document.createElement('button');
+            overlay.type = 'button'; overlay.className = 'play-overlay';
+            overlay.innerHTML = `
+              <svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="27" cy="27" r="26" fill="rgba(0,0,0,.55)" stroke="white" stroke-width="2"/>
+                <polygon points="22,17 22,37 38,27" fill="white"/>
+              </svg>`;
+            shell.appendChild(overlay);
+
+            function drawThumb() {
+              const w = video.videoWidth, h = video.videoHeight;
+              if (!w || !h) return;
+              const canvas = document.createElement('canvas');
+              canvas.width = w; canvas.height = h;
+              const ctx = canvas.getContext('2d', { willReadFrequently: true });
+              try { ctx.drawImage(video, 0, 0, w, h); img.src = canvas.toDataURL('image/jpeg', 0.72); } catch {}
+            }
+
+            function makeThumbAfterSeek() {
+              if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+                video.requestVideoFrameCallback(() => { drawThumb(); });
+              } else {
+                const onSeeked = () => { video.removeEventListener('seeked', onSeeked); if (video.readyState >= 2) drawThumb(); else setTimeout(drawThumb, 50); };
+                video.addEventListener('seeked', onSeeked);
+              }
+            }
+
+            video.addEventListener('loadedmetadata', () => {
+              const t = Math.min(0.1, (video.duration || 1) - 0.001);
+              makeThumbAfterSeek();
+              try { video.currentTime = t; } catch { setTimeout(() => { try { video.currentTime = t; } catch {} }, 30); }
+            }, { once: true });
+
+            overlay.addEventListener('click', () => {
+              overlay.remove(); img.style.display = 'none';
+              video.style.display = ''; video.controls = true; video.muted = false;
+              video.play().catch(() => {});
+            });
+
+            wrapper.appendChild(shell);
+            wrapper.addEventListener('DOMNodeRemoved', () => URL.revokeObjectURL(url), { once: true });
+
+          } else {
+            const img = document.createElement('img');
+            img.alt = f.name; img.className = 'card-img-top';
+            img.style.height = '140px'; img.style.objectFit = 'cover';
+            img.src = url; img.onload = () => URL.revokeObjectURL(url);
+            wrapper.appendChild(img);
+          }
+
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'remove-btn'; removeBtn.innerHTML = '×'; removeBtn.title = 'Remove file';
+          removeBtn.addEventListener('click', () => {
+            const dt = new DataTransfer();
+            Array.from(fileInput.files).forEach((file, i) => { if (i !== index) dt.items.add(file); });
+            fileInput.files = dt.files;
+            fileInput.dispatchEvent(new Event('change'));
+          });
+          wrapper.appendChild(removeBtn);
+
+          const cap = document.createElement('div');
+          cap.className = 'card-body py-2';
+          cap.innerHTML = `<small class="text-truncate d-block">${f.name}</small>`;
+
+          card.appendChild(wrapper); card.appendChild(cap);
+          const colWrap = document.createElement('div'); colWrap.className = 'col';
+          colWrap.appendChild(card);
+          container.appendChild(colWrap);
+        });
       });
 
-      wrapper.appendChild(img);
-      wrapper.appendChild(removeBtn);
-      container.appendChild(wrapper);
-    });
+      logoInput.addEventListener('change', () => {
+        const container = document.getElementById('logoPreviewContainer');
+        container.innerHTML = '';
+        const file = logoInput.files?.[0];
+        if (!file) return;
 
-    // Submit
-    function show(el){ el.classList.remove('d-none'); }
-    function hide(el){ el.classList.add('d-none'); }
+        const wrapper = document.createElement('div'); wrapper.className = 'preview-wrapper';
+        const img = document.createElement('img');
+        img.alt = 'Logo preview'; img.className = 'img-thumbnail mt-2'; img.style.maxHeight = '120px';
+        const url = URL.createObjectURL(file);
+        img.src = url; img.onload = () => URL.revokeObjectURL(url);
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const ok = hasLogo() || hasText();
-      if (!ok) {
-        triedSubmit = true;
-        wmReqMsg?.classList.remove('d-none');  // show only now
-        wmText?.focus();
-        return;
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn'; removeBtn.innerHTML = '×'; removeBtn.title = 'Remove logo';
+        removeBtn.addEventListener('click', () => { logoInput.value = ''; container.innerHTML = ''; showRequirementIfNeeded(); });
+
+        wrapper.appendChild(img); wrapper.appendChild(removeBtn);
+        container.appendChild(wrapper);
+      });
+
+      function show(el) { el.classList.remove('d-none'); }
+      function hide(el) { el.classList.add('d-none'); }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const ok = hasLogo() || hasText();
+        if (!ok) {
+          triedSubmit = true;
+          wmReqMsg?.classList.remove('d-none');
+          wmText?.focus();
+          return;
+        }
+
+        hide(successEl); hide(errorEl); show(loadingEl);
+        submitBtn.disabled = true;
+
+        try {
+          const fd = new FormData(form);
+          const res = await fetch(form.action || '/upload-multi', { method: 'POST', body: fd });
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(txt || `Upload failed with status ${res.status}`);
+          }
+
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          downloadLink.href = url;
+          downloadLink.download = 'watermarked.zip';
+          outNameEl.textContent = 'watermarked.zip';
+
+          hide(loadingEl); show(successEl);
+        } catch (err) {
+          hide(loadingEl);
+          errorEl.textContent = err?.message || 'Something went wrong.';
+          show(errorEl);
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+
+      const dropZone = document.getElementById('dropZone');
+      function addFilesToInput(fileList) {
+        const dt = new DataTransfer();
+        const existing = Array.from(fileInput.files || []);
+        const incoming = Array.from(fileList || []);
+        const combined = [...existing, ...incoming].slice(0, 20);
+        combined.forEach(f => dt.items.add(f));
+        fileInput.files = dt.files;
+        fileInput.dispatchEvent(new Event('change'));
+      }
+      dropZone.addEventListener('click', () => fileInput.click());
+      dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+      ['dragenter','dragover'].forEach(ev => dropZone.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover'); }));
+      ['dragleave','dragend','drop'].forEach(ev => dropZone.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('dragover'); }));
+      dropZone.addEventListener('drop', (e) => {
+        const items = e.dataTransfer?.items;
+        if (items && items.length) {
+          const files = [];
+          for (const it of items) { if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); } }
+          addFilesToInput(files);
+        } else if (e.dataTransfer?.files?.length) { addFilesToInput(e.dataTransfer.files); }
+      });
+      dropZone.addEventListener('paste', (e) => {
+        const files = [];
+        for (const it of e.clipboardData.items) { if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); } }
+        if (files.length) { e.preventDefault(); addFilesToInput(files); }
+      });
+
+      const logoDropZone = document.getElementById('logoDropZone');
+      const logoPreviewContainer = document.getElementById('logoPreviewContainer');
+
+      function setLogoFile(file) {
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { alert('Logo must be an image.'); return; }
+        const mb = file.size / (1024*1024);
+        if (mb > 25) { alert('Logo exceeds 25 MB.'); return; }
+
+        const dt = new DataTransfer(); dt.items.add(file);
+        logoInput.files = dt.files;
+
+        logoPreviewContainer.innerHTML = '';
+        const wrap = document.createElement('div'); wrap.className = 'preview-wrapper';
+
+        const img = document.createElement('img');
+        img.alt = 'Logo preview'; img.className = 'img-thumbnail mt-2'; img.style.maxHeight = '120px';
+        const url = URL.createObjectURL(file); img.src = url;
+        img.onload = () => URL.revokeObjectURL(url);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn'; removeBtn.title = 'Remove logo'; removeBtn.innerHTML = '×';
+        removeBtn.addEventListener('click', () => { logoInput.value = ''; logoPreviewContainer.innerHTML = ''; if (typeof showRequirementIfNeeded === 'function') showRequirementIfNeeded(); });
+
+        wrap.appendChild(img); wrap.appendChild(removeBtn);
+        logoPreviewContainer.appendChild(wrap);
+        if (typeof showRequirementIfNeeded === 'function') showRequirementIfNeeded();
       }
 
-      const show = (el) => el.classList.remove('d-none');
-      const hide = (el) => el.classList.add('d-none');
+      logoDropZone.addEventListener('click', () => logoInput.click());
+      logoDropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); logoInput.click(); } });
+      logoInput.addEventListener('change', () => { const f = logoInput.files?.[0]; if (f) setLogoFile(f); });
+      ['dragenter','dragover'].forEach(ev => logoDropZone.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); logoDropZone.classList.add('dragover'); }));
+      ['dragleave','dragend','drop'].forEach(ev => logoDropZone.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); logoDropZone.classList.remove('dragover'); }));
+      logoDropZone.addEventListener('drop', (e) => {
+        let file = null;
+        const items = e.dataTransfer?.items;
+        if (items && items.length) {
+          for (const it of items) { if (it.kind === 'file') { const f = it.getAsFile(); if (f && f.type.startsWith('image/')) { file = f; break; } } }
+        } else if (e.dataTransfer?.files?.length) { file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/')) || null; }
+        if (file) setLogoFile(file);
+      });
+      logoDropZone.addEventListener('paste', (e) => {
+        const item = [...e.clipboardData.items].find(it => it.kind === 'file');
+        const file = item?.getAsFile();
+        if (file && file.type.startsWith('image/')) { e.preventDefault(); setLogoFile(file); }
+      });
 
-      hide(successEl);
-      hide(errorEl);
-      show(loadingEl);
-      submitBtn.disabled = true;
+      let cachedLogoBlob = null;
+      let cachedObjectURL = null;
+      const useBtn = document.getElementById('aiLogoUseBtn');
+      const previewImg = document.getElementById('aiLogoPreviewImg');
+      const placeholder = document.getElementById('aiLogoPlaceholder');
+      const markEl = document.getElementById('aiLogoMark');
+      const textEl = document.getElementById('aiLogoText');
+      const modal = document.getElementById('aiLogoModal');
+      const openBtn = document.getElementById('aiLogoOpenBtn');
+      const closeBtn = document.getElementById('aiLogoCloseBtn');
+      const previewWrap = document.getElementById('aiLogoPreview');
+      const previewCard = document.getElementById('aiLogoPreviewCard');
 
-      try {
+      const previewBtnAI = document.getElementById('aiLogoPreviewBtn');
+      const previewLabel = previewBtnAI.querySelector('.btn-label');
+
+      const oldLabel = 'Generate preview';
+      const loadingLabel = 'Generating preview…';
+
+      const MOCK_MODE = false;
+
+      function openModal() {
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden','false');
+        document.body.style.overflow = 'hidden';
+        getAIField('text')?.focus();
+
+        if (previewImg) {
+          previewImg.style.display = 'none';
+          previewImg.removeAttribute('src');
+        }
+        placeholder && (placeholder.style.display = '');
+        previewCard && previewCard.classList.remove('skeleton');
+      }
+      function closeModal() {
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden','true');
+        document.body.style.overflow = '';
+        openBtn?.focus();
+      }
+
+      openBtn?.addEventListener('click', openModal);
+      closeBtn?.addEventListener('click', closeModal);
+      modal?.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+      window.addEventListener('keydown', (e)=> { if (!modal.hidden && e.key === 'Escape') closeModal(); });
+
+      function getAIField(name){ return document.querySelector(`#aiLogoForm [name="${name}"]`); }
+      function readAIInputs(){
+        const form = document.getElementById('aiLogoForm');
         const fd = new FormData(form);
-        const res = await fetch(form.action || '/upload-multi', { method: 'POST', body: fd });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => '');
-          throw new Error(txt || `Upload failed with status ${res.status}`);
-        }
-
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        downloadLink.href = url;
-        downloadLink.download = 'watermarked.zip';
-        outNameEl.textContent = 'watermarked.zip';
-
-        hide(loadingEl);
-        show(successEl);
-      } catch (err) {
-        hide(loadingEl);
-        errorEl.textContent = err?.message || 'Something went wrong.';
-        show(errorEl);
-      } finally {
-        submitBtn.disabled = false;
+        return {
+          text  : (fd.get('text')   || '').toString().trim(),
+          colors: (fd.get('colors') || '').toString().trim(),
+          style : (fd.get('style')  || '').toString().trim(),
+        };
       }
+
+      async function generateLogo({ text, colors, style }) {
+        if (MOCK_MODE) {
+          await new Promise(res => setTimeout(res, 1800));
+          const dummy = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO0Afd0AAAAASUVORK5CYII=";
+          return await (await fetch(dummy)).blob();
+        }
+        const res = await fetch('/api/generate-logo', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ text, colors, style }),
+        });
+        if (!res.ok) throw new Error(await res.text().catch(()=> 'Failed'));
+        return res.blob();
+      }
+
+        previewBtnAI?.addEventListener('click', async () => {
+          const { text, colors, style } = readAIInputs();
+          if (!text) { useBtn.disabled = true; return; }
+
+          previewBtnAI.disabled = true;
+          previewBtnAI.classList.add('btn-loading');
+          const prevText = previewLabel.textContent;
+          previewLabel.textContent = 'Generating preview…';
+          useBtn.disabled = true;
+
+          previewCard?.classList.add('skeleton');
+          previewWrap?.setAttribute('aria-busy','true');
+
+          try {
+            const blob = await generateLogo({ text, colors, style });
+            cachedLogoBlob = blob;
+
+            if (cachedObjectURL) URL.revokeObjectURL(cachedObjectURL);
+            cachedObjectURL = URL.createObjectURL(blob);
+
+            previewImg.onload = () => URL.revokeObjectURL(cachedObjectURL);
+            previewImg.src = cachedObjectURL;
+            previewImg.style.display = 'block';
+            placeholder && (placeholder.style.display = 'none');
+
+            useBtn.disabled = false;
+          } catch (e) {
+            console.warn('Preview generation failed:', e);
+            placeholder && (placeholder.style.display = '');
+            previewImg && (previewImg.style.display = 'none');
+            useBtn.disabled = true;
+          } finally {
+            previewCard?.classList.remove('skeleton');
+            previewWrap?.removeAttribute('aria-busy');
+            previewBtnAI.disabled = false;
+            previewBtnAI.classList.remove('btn-loading');
+            previewLabel.textContent = prevText;
+          }
+        });
+
+      useBtn?.addEventListener('click', async () => {
+        const payload = readAIInputs();
+        if (!payload.text) return;
+
+        useBtn.disabled = true;
+        const old = useBtn.textContent;
+        useBtn.textContent = 'Attaching…';
+        try {
+          let blob = cachedLogoBlob;
+          if (!blob && !MOCK_MODE) {
+            blob = await generateLogo(payload);
+          }
+          if (!blob) throw new Error('No preview to attach.');
+
+          const file = new File([blob], 'ai-logo.png', { type: 'image/png' });
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          logoInput.files = dt.files;
+          logoInput.dispatchEvent(new Event('change'));
+          closeModal();
+        } catch (e) {
+          console.warn('Use failed:', e);
+          errorEl.textContent = (e && e.message) ? e.message : 'Logo preview failed.';
+          errorEl.classList.remove('d-none');
+        } finally {
+          useBtn.disabled = false;
+          useBtn.textContent = old;
+        }
+      });
     });
-
-    const dropZone = document.getElementById('dropZone');
-
-function addFilesToInput(fileList) {
-  const dt = new DataTransfer();
-  const existing = Array.from(fileInput.files || []);
-  const incoming = Array.from(fileList || []);
-
-  const combined = [...existing, ...incoming].slice(0, 20);
-  combined.forEach(f => dt.items.add(f));
-  fileInput.files = dt.files;
-
-  fileInput.dispatchEvent(new Event('change'));
-}
-
-  dropZone.addEventListener('click', () => fileInput.click());
-  dropZone.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault(); fileInput.click();
-    }
-  });
-
-  ['dragenter','dragover'].forEach(ev =>
-    dropZone.addEventListener(ev, (e) => {
-      e.preventDefault(); e.stopPropagation();
-      dropZone.classList.add('dragover');
-    })
-  );
-
-  ['dragleave','dragend','drop'].forEach(ev =>
-    dropZone.addEventListener(ev, (e) => {
-      e.preventDefault(); e.stopPropagation();
-      dropZone.classList.remove('dragover');
-    })
-  );
-
-  dropZone.addEventListener('drop', (e) => {
-    const items = e.dataTransfer?.items;
-    if (items && items.length) {
-      // Prefer items so directories can be skipped cleanly
-      const files = [];
-      for (const it of items) {
-        if (it.kind === 'file') {
-          const f = it.getAsFile();
-          if (f) files.push(f);
-        }
-      }
-      addFilesToInput(files);
-    } else if (e.dataTransfer?.files?.length) {
-      addFilesToInput(e.dataTransfer.files);
-    }
-  });
-
-  dropZone.addEventListener('paste', (e) => {
-    const files = [];
-    for (const it of e.clipboardData.items) {
-      if (it.kind === 'file') {
-        const f = it.getAsFile();
-        if (f) files.push(f);
-      }
-    }
-    if (files.length) { e.preventDefault(); addFilesToInput(files); }
-  });
-
-  const logoDropZone = document.getElementById('logoDropZone');
-  const logoPreviewContainer = document.getElementById('logoPreviewContainer');
-
-  function setLogoFile(file){
-    if (!file) return;
-    if (!file.type.startsWith('image/')) { alert('Logo must be an image.'); return; }
-    const mb = file.size / (1024*1024);
-    if (mb > 25) { alert('Logo exceeds 25 MB.'); return; }
-
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    logoInput.files = dt.files;
-
-    logoPreviewContainer.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.className = 'preview-wrapper';
-
-    const img = document.createElement('img');
-    img.alt = 'Logo preview';
-    img.className = 'img-thumbnail mt-2';
-    img.style.maxHeight = '120px';
-    const url = URL.createObjectURL(file);
-    img.src = url;
-    img.onload = () => URL.revokeObjectURL(url);
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-btn';
-    removeBtn.title = 'Remove logo';
-    removeBtn.innerHTML = '×';
-    removeBtn.addEventListener('click', () => {
-      logoInput.value = '';
-      logoPreviewContainer.innerHTML = '';
-      // keep your “logo or text required” message in sync
-      if (typeof showRequirementIfNeeded === 'function') showRequirementIfNeeded();
-    });
-
-    wrap.appendChild(img);
-    wrap.appendChild(removeBtn);
-    logoPreviewContainer.appendChild(wrap);
-
-    if (typeof showRequirementIfNeeded === 'function') showRequirementIfNeeded();
-  }
-
-  logoDropZone.addEventListener('click', () => logoInput.click());
-  logoDropZone.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); logoInput.click(); }
-  });
-
-  logoInput.addEventListener('change', () => {
-    const f = logoInput.files?.[0];
-    if (f) setLogoFile(f);
-  });
-
-  ['dragenter','dragover'].forEach(ev =>
-    logoDropZone.addEventListener(ev, (e) => {
-      e.preventDefault(); e.stopPropagation();
-      logoDropZone.classList.add('dragover');
-    })
-  );
-  ['dragleave','dragend','drop'].forEach(ev =>
-    logoDropZone.addEventListener(ev, (e) => {
-      e.preventDefault(); e.stopPropagation();
-      logoDropZone.classList.remove('dragover');
-    })
-  );
-
-  logoDropZone.addEventListener('drop', (e) => {
-    let file = null;
-    const items = e.dataTransfer?.items;
-    if (items && items.length){
-      for (const it of items){
-        if (it.kind === 'file'){
-          const f = it.getAsFile();
-          if (f && f.type.startsWith('image/')) { file = f; break; }
-        }
-      }
-    } else if (e.dataTransfer?.files?.length){
-      file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/')) || null;
-    }
-    if (file) setLogoFile(file);
-  });
-
-  logoDropZone.addEventListener('paste', (e) => {
-    const item = [...e.clipboardData.items].find(it => it.kind === 'file');
-    const file = item?.getAsFile();
-    if (file && file.type.startsWith('image/')) {
-      e.preventDefault();
-      setLogoFile(file);
-    }
-  });
-
   </script>
 {% endblock %}

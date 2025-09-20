@@ -11,6 +11,17 @@ import tempfile
 import subprocess
 import shutil
 import json
+import base64
+from io import BytesIO
+from openai import OpenAI
+from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    raise ImportError("python-dotenv package is not installed. Run 'pip install python-dotenv'.")
+
+dotenv_loaded = load_dotenv()
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -491,3 +502,61 @@ def add_text_watermark_ffmpeg(
                 os.remove(p)
             except:
                 pass
+
+def _logo_prompt(text: str, colors: str = "", style: str = "") -> str:
+    colors_desc = colors.strip() or "designer's choice within brand-friendly neutrals"
+    style_desc  = style.strip()  or "minimal, geometric, high-contrast"
+    return (
+        "Design a simple, clean LOGO.\n"
+        f"- Brand text: \"{text.strip()}\"\n"
+        f"- Color palette: {colors_desc}\n"
+        f"- Style: {style_desc}\n"
+        "- Flat vector look, centered composition, legible typography.\n"
+        "- No background, no mockups, no photos or textures.\n"
+    )
+
+@app.post("/api/generate-logo")
+async def generate_logo(req: Request):
+    try:
+        data = await req.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+
+    text = (data.get("text") or "").strip()
+    colors = (data.get("colors") or "").strip()
+    style = (data.get("style") or "").strip()
+
+    if not text:
+        raise HTTPException(400, "text is required")
+
+    if len(text) > 80:   text = text[:80]
+    if len(colors) > 120: colors = colors[:120]
+    if len(style) > 200:  style = style[:200]
+
+    prompt = _logo_prompt(text, colors, style)
+
+    client = get_openai_client()
+    try:
+        img = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+            response_format="b64_json",
+        )
+        data0 = img.data[0]
+        b64 = getattr(data0, "b64_json", None) or (data0.get("b64_json") if isinstance(data0, dict) else None)
+        if not b64:
+            raise HTTPException(502, "OpenAI did not return base64 image data (b64_json).")
+        png_bytes = base64.b64decode(b64)
+        return StreamingResponse(BytesIO(png_bytes), media_type="image/png", headers={"Cache-Control": "no-store"})
+    except Exception as e:
+        msg = getattr(e, "message", None) or str(e)
+        raise HTTPException(502, f"Logo generation failed: {msg}")
+
+def get_openai_client():
+    key = os.environ.get("OPENAI_API_KEY")
+    if not key:
+        raise HTTPException(500, "OpenAI key not configured (set OPENAI_API_KEY in .env file)")
+    return OpenAI(api_key=key)

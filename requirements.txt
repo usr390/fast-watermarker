@@ -4,3 +4,5 @@ python-multipart
 Jinja2
 Pillow
 starlette
+openai
+python-dotenv
