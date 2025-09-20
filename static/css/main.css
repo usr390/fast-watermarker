@@ -166,3 +166,46 @@ footer {
 .video-thumb .play-overlay svg {
   width:64px; height:64px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
 }
+
+/* Dropzone container */
+.dropzone {
+  border: 2px dashed #bbb;           /* dashed outline */
+  border-radius: 12px;               /* rounded corners */
+  padding: 40px 20px;                /* roomy inside */
+  background-color: #fafafa;         /* light gray background */
+  color: #555;                       /* neutral text */
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+/* Hover / drag over state */
+.dropzone.dragover,
+.dropzone:hover {
+  border-color: #4a90e2;             /* bright blue highlight */
+  background-color: #f0f8ff;         /* light blue background */
+}
+
+/* Inner contents */
+.dropzone .dz-icon {
+  font-size: 36px;
+  color: #888;
+  margin-bottom: 8px;
+}
+.dropzone .dz-title {
+  font-weight: 600;
+  font-size: 16px;
+}
+.dropzone .dz-sub {
+  font-size: 14px;
+  color: #666;
+}
+.dropzone .dz-link {
+  color: #4a90e2;
+  text-decoration: underline;
+  cursor: pointer;
+}
+/* make logo zone a bit tighter than the big media zone */
+.dropzone.dropzone--small{
+  padding: 24px 16px;
+}

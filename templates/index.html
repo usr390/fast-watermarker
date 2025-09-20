@@ -5,7 +5,12 @@
   <form id="wmForm" action="/upload-multi" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
     <div class="mb-3">
       <label class="form-label">Media file(s)</label>
-      <input id="fileInput" class="form-control" type="file" name="files" accept="image/*,video/*" multiple required>
+      <input id="fileInput" class="visually-hidden" type="file" name="files" accept="image/*,video/*" multiple required>
+      <div id="dropZone" class="dropzone" role="button" tabindex="0">
+        <div class="dz-icon">📂</div>
+        <div class="dz-title">Drag & drop images or videos</div>
+        <div class="dz-sub">or <span class="dz-link">browse</span> your device</div>
+      </div>
       <div id="previewContainer" class="row row-cols-2 row-cols-md-3 g-2 mt-2"></div>
     </div>
 
@@ -13,7 +18,12 @@
 
     <div class="mb-3">
       <label class="form-label">Logo watermark</label>
-      <input id="logoInput" class="form-control" type="file" name="logo" accept="image/png,image/*">
+      <input id="logoInput" class="visually-hidden" type="file" name="logo" accept="image/png,image/*">
+      <div id="logoDropZone" class="dropzone dropzone--small" role="button" tabindex="0" aria-label="Drop a logo or click to browse">
+        <div class="dz-icon">🖼️</div>
+        <div class="dz-title">Drag & drop a logo</div>
+        <div class="dz-sub">or <span class="dz-link">browse</span> your device</div>
+      </div>
       <div id="logoPreviewContainer" class="mt-2"></div>
     </div>
 
@@ -377,6 +387,160 @@
         submitBtn.disabled = false;
       }
     });
+
+    const dropZone = document.getElementById('dropZone');
+
+function addFilesToInput(fileList) {
+  const dt = new DataTransfer();
+  const existing = Array.from(fileInput.files || []);
+  const incoming = Array.from(fileList || []);
+
+  const combined = [...existing, ...incoming].slice(0, 20);
+  combined.forEach(f => dt.items.add(f));
+  fileInput.files = dt.files;
+
+  fileInput.dispatchEvent(new Event('change'));
+}
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); fileInput.click();
+    }
+  });
+
+  ['dragenter','dragover'].forEach(ev =>
+    dropZone.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.add('dragover');
+    })
+  );
+
+  ['dragleave','dragend','drop'].forEach(ev =>
+    dropZone.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.remove('dragover');
+    })
+  );
+
+  dropZone.addEventListener('drop', (e) => {
+    const items = e.dataTransfer?.items;
+    if (items && items.length) {
+      // Prefer items so directories can be skipped cleanly
+      const files = [];
+      for (const it of items) {
+        if (it.kind === 'file') {
+          const f = it.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      addFilesToInput(files);
+    } else if (e.dataTransfer?.files?.length) {
+      addFilesToInput(e.dataTransfer.files);
+    }
+  });
+
+  dropZone.addEventListener('paste', (e) => {
+    const files = [];
+    for (const it of e.clipboardData.items) {
+      if (it.kind === 'file') {
+        const f = it.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length) { e.preventDefault(); addFilesToInput(files); }
+  });
+
+  const logoDropZone = document.getElementById('logoDropZone');
+  const logoPreviewContainer = document.getElementById('logoPreviewContainer');
+
+  function setLogoFile(file){
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Logo must be an image.'); return; }
+    const mb = file.size / (1024*1024);
+    if (mb > 25) { alert('Logo exceeds 25 MB.'); return; }
+
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    logoInput.files = dt.files;
+
+    logoPreviewContainer.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'preview-wrapper';
+
+    const img = document.createElement('img');
+    img.alt = 'Logo preview';
+    img.className = 'img-thumbnail mt-2';
+    img.style.maxHeight = '120px';
+    const url = URL.createObjectURL(file);
+    img.src = url;
+    img.onload = () => URL.revokeObjectURL(url);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-btn';
+    removeBtn.title = 'Remove logo';
+    removeBtn.innerHTML = '×';
+    removeBtn.addEventListener('click', () => {
+      logoInput.value = '';
+      logoPreviewContainer.innerHTML = '';
+      // keep your “logo or text required” message in sync
+      if (typeof showRequirementIfNeeded === 'function') showRequirementIfNeeded();
+    });
+
+    wrap.appendChild(img);
+    wrap.appendChild(removeBtn);
+    logoPreviewContainer.appendChild(wrap);
+
+    if (typeof showRequirementIfNeeded === 'function') showRequirementIfNeeded();
+  }
+
+  logoDropZone.addEventListener('click', () => logoInput.click());
+  logoDropZone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); logoInput.click(); }
+  });
+
+  logoInput.addEventListener('change', () => {
+    const f = logoInput.files?.[0];
+    if (f) setLogoFile(f);
+  });
+
+  ['dragenter','dragover'].forEach(ev =>
+    logoDropZone.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      logoDropZone.classList.add('dragover');
+    })
+  );
+  ['dragleave','dragend','drop'].forEach(ev =>
+    logoDropZone.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      logoDropZone.classList.remove('dragover');
+    })
+  );
+
+  logoDropZone.addEventListener('drop', (e) => {
+    let file = null;
+    const items = e.dataTransfer?.items;
+    if (items && items.length){
+      for (const it of items){
+        if (it.kind === 'file'){
+          const f = it.getAsFile();
+          if (f && f.type.startsWith('image/')) { file = f; break; }
+        }
+      }
+    } else if (e.dataTransfer?.files?.length){
+      file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/')) || null;
+    }
+    if (file) setLogoFile(file);
+  });
+
+  logoDropZone.addEventListener('paste', (e) => {
+    const item = [...e.clipboardData.items].find(it => it.kind === 'file');
+    const file = item?.getAsFile();
+    if (file && file.type.startsWith('image/')) {
+      e.preventDefault();
+      setLogoFile(file);
+    }
+  });
 
   </script>
 {% endblock %}
