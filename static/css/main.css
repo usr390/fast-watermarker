@@ -5,6 +5,8 @@
   --brand-yellow:#FFD22E; --brand-yellow-deep:#F7B800;
   --canvas:#fff; --ink:#1b1b1b;
   --card-radius:16px; --ring:rgba(0,0,0,.08);
+  --text-light: #e9ecef; /* lighter than Bootstrap’s secondary (#6c757d) */
+
 }
 
 /* ========= Page Background ========= */
@@ -238,3 +240,72 @@ footer a{ color:var(--brand-yellow); } footer a:hover{ color:#fff; text-decorati
 
 /* Optional: if your placeholder needs the same cap */
 .ai-placeholder{ max-height: 60svh; overflow: hidden; }
+
+/* Section rhythm */
+.fw-section { padding: clamp(32px, 6vw, 72px) 0; }
+
+/* Hero breathing room */
+.fw-hero { padding-top: clamp(48px, 8vw, 120px); }
+
+/* Subtle section separators on red bg */
+.fw-section + .fw-section { border-top: 1px solid rgba(0,0,0,.12); }
+
+/* Make the middle pricing card pop slightly */
+.fw-card-pop { transform: translateY(-6px); }
+
+/* Keep preview media contained */
+.object-fit-cover { object-fit: cover; }
+
+/* Buttons: defer to your main theme (yellow). No override here. */
+/* .btn-primary — use the one defined in main.css */
+
+/* Navbar gentle backdrop once scrolled */
+.fw-nav { transition: background .2s ease, box-shadow .2s ease; }
+.sticky-top + .fw-section { padding-top: 0; }
+body.scrolled .fw-nav {
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+
+.text-lightgray {
+  color: var(--text-light-2) !important;
+}
+
+.fw-nav {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.fw-nav .navbar-brand {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* FAQ accordion hover/focus colors */
+#faq .accordion-button:hover,
+#faq .accordion-button:focus {
+  background-color: var(--brand-yellow);
+  color: #1a1a1a; /* dark text for contrast */
+}
+
+/* Optional: when expanded (active item) */
+#faq .accordion-button:not(.collapsed) {
+  background-color: var(--brand-yellow);
+  color: #1a1a1a;
+  box-shadow: none; /* remove Bootstrap's default shadow if you want */
+}
+
+#uploadTopbar .nav-link { color: #fff; opacity: .85; }
+#uploadTopbar .nav-link:hover,
+#uploadTopbar .nav-link:focus { opacity: 1; }
+/* Make nav links readable on dark backgrounds */
+#uploadTopbar .nav-link { color: #fff; opacity: .9; }
+#uploadTopbar .nav-link:hover, #uploadTopbar .nav-link:focus { opacity: 1; }
+
+/* Keep the big logo clickable above the collapse layer */
+#uploadTopbar .navbar-brand { z-index: 2; }
+
+#uploadTopbar .topbar-controls { top: 6.6rem; }               /* mobile */
+@media (min-width: 768px) {
+  #uploadTopbar .topbar-controls { top: 6.6rem; }            /* tablet+ */
+}

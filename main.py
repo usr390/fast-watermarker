@@ -35,7 +35,7 @@ VIDEO_MIME_PREFIXES = ("video/",)
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm"}
 
-MAX_REQUEST_BYTES = 600 * 1024 * 1024  # 600MB
+MAX_REQUEST_BYTES = 600 * 1024 * 1024 # 600MB
 MAX_IMAGE_MB = 25
 MAX_IMAGE_PIXELS = 13_000_000              # 13MP
 MAX_VIDEO_MB = 300
@@ -50,8 +50,22 @@ async def reject_large_requests(request, call_next):
     return await call_next(request)
 
 @app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+async def landing(request: Request):
+    # Public marketing/SEO page
+    return templates.TemplateResponse("landing.html", {"request": request})
+
+@app.get("/upload", response_class=HTMLResponse)
+async def upload_page(request: Request):
+    # The actual tool UI
+    return templates.TemplateResponse("upload.html", {"request": request})
+
+@app.get("/login")
+def login(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.get("/pricing")
+async def pricing(request: Request):
+    return templates.TemplateResponse("pricing.html", {"request": request})
 
 @app.post("/upload")
 async def upload(

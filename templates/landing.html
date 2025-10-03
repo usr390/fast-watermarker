@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block title %}FastWatermarker — Bulk watermark images & video in minutes{% endblock %}
+
+{% block head %}
+{% endblock %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark sticky-top bg-transparent fw-nav">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+      <img src="{{ url_for('static', path='images/logo.png') }}" alt="FastWatermarker" height="120" />
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#fwNav" aria-controls="fwNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="fwNav">
+      <ul class="navbar-nav ms-auto mb-2 mb-lg-0 fw-nav-links">
+        <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
+        <li class="nav-item"><a class="nav-link" href="#how">How it works</a></li>
+        <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
+        <li class="nav-item"><a class="nav-link" href="#testimonials">Reviews</a></li>
+        <li class="nav-item"><a class="nav-link" href="#faq">FAQ</a></li>
+      </ul>
+      <div class="ms-lg-3 mt-3 mt-lg-0 d-flex gap-2 align-items-center">
+        <!-- Clerk will mount the avatar dropdown here when signed in -->
+        <div id="clerk-user-button" style="display:none"></div>
+
+        <!-- Fallback shown when signed out -->
+        <a id="clerk-signin-link" class="btn btn-outline-light" href="/login">Sign in</a>
+        <a class="btn btn-primary" href="/upload">Start watermarking</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<header class="fw-section fw-hero mt-5">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-6">
+        <h1 class="display-5 fw-bold text-white">The simplest & fastest watermarking website.</h1>
+        <p class="lead mt-3 text-white">Blazin' fast, incredibly simple. Watermarking service for images and video.</p>
+
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <a href="/upload" class="btn btn-primary btn-lg">Start watermarking</a>
+          <a href="#how" class="btn btn-outline-light btn-lg">See how it works</a>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="ratio ratio-16x9 overflow-hidden bg-transparent">
+          <img src="{{ url_for('static', path='images/app-preview.png') }}" alt="FastWatermarker UI preview" class="w-100 h-100 object-fit-cover">
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Partners / Social proof -->
+<!-- <section class="fw-section fw-partners fw-strip py-4">
+  <div class="container text-center">
+    <p class="text-muted mb-3">Trusted by creators, sellers, and studios</p>
+    <div class="d-flex flex-wrap justify-content-center gap-4">
+      {% for i in range(1,7) %}
+        <div class="opacity-75">
+          <div class="rounded-circle bg-body-secondary" style="width:54px;height:54px;"></div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section> -->
+
+<!-- Features -->
+<section id="features" class="fw-section">
+  <div class="container">
+    <h2 class="h3 text-center mb-4 fw-bold text-white">Features</h2>
+    <div class="row g-3 g-md-4">
+      {% set cards = [
+        ('Image/video uploads', 'Watermark images or videos.', 'cloud-arrow-up-fill'),
+        ('Logo or text watermark', 'Use your brand logo or type a simple © text.', 'type'),
+        ('Precise control', 'Pick watermark size, opacity, and position in a click.', 'sliders'),
+        ('Full privacy', 'We never store your images and videos on our servers. Your media stays yours.', 'shield-check'),
+        ('No account needed', 'Jump in, process, and download your watermarked images/videos.', 'box-arrow-in-right'),
+        ('Fast exports', 'Server-side processing optimized for speed.', 'lightning-charge-fill')
+      ] %}
+      {% for title, copy, icon in cards %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <div class="mb-2 d-inline-flex align-items-center">
+              <i class="bi bi-{{ icon }} text-dark fs-3"></i>
+            </div>
+            <h3 class="h6">{{ title }}</h3>
+            <p class="mb-0 text-secondary">{{ copy }}</p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- How it works (3 steps) -->
+<section id="how" class="fw-section">
+  <div class="container">
+    <h2 class="h3 text-center mb-4 fw-bold text-white">How it works</h2>
+    <div class="row g-3 g-md-4">
+      {% set steps = [
+        ('Upload files', 'Drag & drop images and videos or click to browse form your device.'),
+        ('Choose watermark', 'Upload a logo or type text; set size, opacity, and placement.'),
+        ('Download', 'Click Upload and receive a single ZIP with all media watermarked.')
+      ] %}
+      {% for title, copy in steps %}
+      <div class="col-12 col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="display-6 fw-bold lh-1 mb-2">{{ loop.index }}</div>
+            <h3 class="h6">{{ title }}</h3>
+            <p class="mb-0 text-secondary">{{ copy }}</p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section id="pricing" class="fw-section">
+  <div class="container">
+    <h2 class="h3 text-center mb-4 fw-bold text-white">Pricing</h2>
+
+      <div class="row g-3 g-md-4 justify-content-center">
+        {% set plans = [
+        ('Free', '$0', 'month', ['Single Image/Video Uploads','Logo Or Text Watermarks','Set Watermark Position, Opacity, and Size'], 'Get started', 'btn-outline-primary'),
+        ('FastWatermarker Pro', '$7', 'month', ['Everything In Free Plan','Multiple Image/Video Uploads','Faster Processing', 'AI Generated Logos'], 'Choose Pro', 'btn-primary'),
+      ] %}
+      {% for name, price, unit, bullets, cta, btnclass in plans %}
+      <div class="col-12 col-md-4">
+        <div class="card h-100 shadow-lg border-0">
+          <div class="card-body d-flex flex-column">
+            <h3 class="h5">{{ name }}</h3>
+            <div class="d-flex align-items-end gap-1 my-2">
+              <span class="display-6 fw-bold">{{ price }}</span>
+              <span class="text-muted">/{{ unit }}</span>
+            </div>
+            <ul class="list-unstyled small flex-grow-1">
+              {% for b in bullets %}<li class="mb-2">✔️ {{ b }}</li>{% endfor %}
+            </ul>
+            <a href="/pricing" class="btn {{ btnclass }} w-100 mt-2">{{ cta }}</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- Testimonials -->
+<section id="testimonials" class="fw-section">
+  <div class="container">
+    <h2 class="h3 text-center mb-4 fw-bold text-white">Reviews by people worldwide</h2>
+    <div class="row g-3 g-md-4">
+      {% set testimonials = [
+        ('FastWatermarker saved me hours prepping training videos for my web platform.', 'Anonymous', 'Software developer'),
+        ('Batch watermarking is insanely fast. Total lifesaver.', 'Anonymous', 'Online content-creator / Influencer'),
+        ('Exactly the controls I need: size, opacity, placement. Perfect.', 'Anonymous', 'Marketplace seller')
+      ] %}
+      {% for quote, name, role in testimonials %}
+      <div class="col-12 col-md-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <div class="mb-2">★★★★★</div>
+            <p class="mb-3">“{{ quote }}”</p>
+            <div class="d-flex align-items-center gap-2">
+              <div class="rounded-circle bg-body-secondary d-inline-flex align-items-center justify-content-center" 
+                   style="width:36px;height:36px;">
+                <span class="small fw-bold">{{ name[0] }}</span>
+              </div>
+              <div>
+                <div class="small fw-semibold">{{ name }}</div>
+                <div class="small text-secondary">{{ role }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="fw-section">
+  <div class="container">
+    <h2 class="h3 text-center mb-4 fw-bold text-white">Frequently Asked Questions</h2>
+    <div class="accordion" id="fwFaq">
+      {% set faqs = [
+        ('Do I need an account?', 'No, use it free without signing in.'),
+        ('Does it work with video?', 'Yes, common formats are supported. Upload, set the watermark, and export.'),
+        ('Are my images and videos private?', 'Most definitely. We pride ourselves on this. We do not store any of your images or videos on our servers. Ever. Our code is open-source and always available for review by the community!'),
+        ('How many images/videos can I upload?', 'Free allows up to 1 at a time; Pro allows up to 20 at a time.'),
+        ('How long can the videos be?', 'We currently support videos up to 10 minutes in length and 300 MB in size. This keeps processing fast and ensures reliable exports. If you need to watermark longer videos, you can split them into parts before uploading.')
+      ] %}
+      {% for q, a in faqs %}
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="q{{ loop.index }}">
+          <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#a{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="a{{ loop.index }}">
+            {{ q }}
+          </button>
+        </h2>
+        <div id="a{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="q{{ loop.index }}" data-bs-parent="#fwFaq">
+          <div class="accordion-body">
+            {{ a }}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- Final CTA -->
+<section class="fw-section fw-cta">
+  <div class="container">
+    <div class="card border-0 shadow-lg text-center p-4 p-md-5">
+      <h2 class="h3">Protect your work in minutes</h2>
+      <p class="text-secondary mb-4">Upload, watermark, and export. No sign-up required.</p>
+      <a href="/upload" class="btn btn-primary btn-lg">Start now</a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer is already in base.html -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Highlight active nav link on scroll (simple section tracking)
+  const links = document.querySelectorAll('.fw-nav-links .nav-link');
+  const sections = [...document.querySelectorAll('section[id]')];
+  const inView = (el) => {
+    const r = el.getBoundingClientRect();
+    return r.top < window.innerHeight * 0.33 && r.bottom > window.innerHeight * 0.33;
+  };
+  const tick = () => {
+    const current = sections.find(inView);
+    links.forEach(l => l.classList.remove('active'));
+    if (current) {
+      const a = document.querySelector(`.fw-nav-links .nav-link[href="#${current.id}"]`);
+      a && a.classList.add('active');
+    }
+  };
+  document.addEventListener('scroll', tick, { passive: true });
+  window.addEventListener('load', tick);
+</script>
+{% endblock %}

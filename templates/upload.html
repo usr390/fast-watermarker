@@ -1,0 +1,917 @@
+{% extends "base.html" %}
+{% block title %}Upload | Fast Watermarker{% endblock %}
+
+{% block content %}
+<!-- Upload navbar (logo + hamburger + profile) -->
+<!-- Upload navbar: centered logo + profile + always-collapsed hamburger -->
+<nav class="navbar navbar-dark bg-transparent mb-3" id="uploadTopbar">
+  <div class="container position-relative py-2 justify-content-center">
+
+    <!-- Right side: profile first, then hamburger -->
+    <div class="topbar-controls position-absolute end-0 d-flex align-items-center gap-2" style="z-index:2;">
+      <div id="clerk-user-button-upload" style="display:none"></div>
+      <a id="clerk-signin-link-upload" class="btn btn-outline-light btn-sm" href="/login">Sign in</a>
+
+      <button class="navbar-toggler" type="button"
+              data-bs-toggle="collapse" data-bs-target="#uploadNav"
+              aria-controls="uploadNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+    </div>
+
+    <!-- Centered brand (unchanged) -->
+    <div class="d-flex align-items-center justify-content-center my-5 w-100">
+      <a href="/" class="text-decoration-none mx-auto">
+        <img class="brand-logo" src="{{ url_for('static', path='images/logo.png') }}"
+             alt="Fast Watermarker" style="max-width:225px;height:auto;" loading="eager" decoding="async" />
+      </a>
+    </div>
+  </div>
+
+  <!-- Collapsed menu -->
+  <div class="collapse" id="uploadNav">
+    <div class="container">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
+        <li class="nav-item"><a class="nav-link" href="/#how">How it works</a></li>
+        <li class="nav-item"><a class="nav-link" href="/#pricing">Pricing</a></li>
+        <li class="nav-item"><a class="nav-link" href="/#testimonials">Reviews</a></li>
+        <li class="nav-item"><a class="nav-link" href="/#faq">FAQ</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  <form id="wmForm" action="/upload-multi" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
+    <div class="mb-3">
+      <label class="form-label d-flex align-items-center justify-content-between">
+        <span>Media file(s)</span>
+        <small id="nonProNoticeUploads" class="text-muted d-none">
+          Multiple uploads require <a href="/pricing" class="linklike">FastWatermarker Pro</a>.
+        </small>
+      </label>
+      <input id="fileInput" class="visually-hidden" type="file" name="files"
+            accept="image/*,video/*" multiple required>
+      <div id="dropZone" class="dropzone" role="button" tabindex="0">
+        <div class="dz-icon">📂</div>
+        <div class="dz-title">Drag & drop images or videos</div>
+        <div class="dz-sub">or <span class="dz-link">browse</span> your device</div>
+      </div>
+      <div id="previewContainer" class="row row-cols-2 row-cols-md-3 g-2 mt-2"></div>
+      <div id="statusErrorFiles" class="alert alert-danger d-none mt-3 mb-0" role="alert" aria-live="assertive"></div>
+    </div>
+
+    <hr class="my-4">
+
+    <div class="mb-3">
+      <label class="form-label">Logo watermark</label>
+      <input id="logoInput" class="visually-hidden" type="file" name="logo" accept="image/svg+xml,image/png,image/*">
+      <div id="logoDropZone" class="dropzone dropzone--small" role="button" tabindex="0" aria-label="Drop a logo or click to browse">
+        <div class="dz-icon">📂</div>
+        <div class="dz-title">Drag & drop a logo</div>
+        <div class="dz-sub">or <span class="dz-link">browse</span> your device</div>
+      </div>
+
+      <p class="ai-logo-cta d-flex align-items-center justify-content-between">
+        <button type="button" class="linklike d-inline-flex align-items-center gap-1" id="aiLogoOpenBtn">
+          <i class="bi bi-stars"></i>
+          Generate One!
+        </button>
+      </p>
+
+      <div id="logoPreviewContainer" class="mt-2"></div>
+    </div>
+
+    <div class="d-flex justify-content-center align-items-center my-3">
+      <span class="text-muted">OR</span>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Text watermark</label>
+      <input id="wmText" class="form-control" type="text" name="text" placeholder="© mybrand">
+      <small id="wmReqMsg" class="text-danger d-none">Add a logo or enter text to continue.</small>
+    </div>
+
+    <hr class="my-4">
+
+    <div class="mb-3">
+      <label class="form-label">Watermark size</label>
+      <input class="form-range" type="range" min="0.20" max="0.80" step="0.05" name="scale" value="0.60">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label d-flex align-items-center justify-content-between">
+        <span>Watermark opacity</span>
+      </label>
+      <input class="form-range" type="range" min="0.10" max="1.00" step="0.05" name="opacity" id="opacityInput" value="0.90">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label d-block">Watermark position</label>
+      <input type="hidden" name="position" id="positionInput" value="center">
+
+      <div class="pos-grid" role="group" aria-label="Watermark position">
+        <button type="button" class="pos-cell" data-pos="tl" aria-label="Top left"></button>
+        <button type="button" class="pos-cell pos-disabled"></button>
+        <button type="button" class="pos-cell" data-pos="tr" aria-label="Top right"></button>
+
+        <button type="button" class="pos-cell pos-disabled"></button>
+        <button type="button" class="pos-cell active" data-pos="center" aria-label="Center"></button>
+        <button type="button" class="pos-cell pos-disabled"></button>
+
+        <button type="button" class="pos-cell" data-pos="bl" aria-label="Bottom left"></button>
+        <button type="button" class="pos-cell pos-disabled"></button>
+        <button type="button" class="pos-cell" data-pos="br" aria-label="Bottom right"></button>
+      </div>
+      <hr class="my-4">
+    </div>
+
+    <button id="submitBtn" class="btn btn-primary" type="submit">Upload</button>
+
+    <div id="statusLoading" class="alert alert-info d-none mt-3 mb-0">
+      <div class="d-flex align-items-center gap-2">
+        <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+        <span>Processing your files...</span>
+      </div>
+    </div>
+    <div id="statusSuccess" class="alert alert-success d-none mt-3 mb-0">
+      Done! <strong id="outName">watermarked.zip</strong>
+      <a id="downloadLink" class="ms-2" style="color: green" download>Download</a>
+    </div>
+    <div id="statusErrorGlobal" class="alert alert-danger d-none mt-3 mb-0" role="alert" aria-live="assertive"></div>
+  </form>
+
+  <div class="ai-modal-backdrop" id="aiLogoModal" hidden aria-hidden="true">
+    <div class="ai-modal" role="dialog" aria-modal="true" aria-labelledby="aiLogoTitle">
+      <header class="ai-modal-header">
+        <h3 id="aiLogoTitle">FastWatermarker AI</h3>
+        <button type="button" class="ai-iconbtn" id="aiLogoCloseBtn" aria-label="Close">✕</button>
+      </header>
+
+      <form id="aiLogoForm" class="ai-modal-body" role="form">
+        <label class="field">
+          <span>Logo text</span>
+          <input name="text" type="text" placeholder="e.g., mybrand" required />
+        </label>
+
+        <label class="field">
+          <span>Colors</span>
+          <input name="colors" type="text" placeholder="e.g., red, white, black" />
+          <small>Comma-separated. You can paste hex codes too.</small>
+        </label>
+
+        <label class="field">
+          <span>Style</span>
+          <input name="style" type="text" placeholder="e.g., modern minimal badge, hand-drawn vibe" />
+          <small>Describe the look you want (keywords, phrases, anything).</small>
+        </label>
+
+        <div class="ai-actions">
+          <button type="button" id="aiLogoPreviewBtn" class="btn" >
+            <span class="btn-label">Generate preview</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+          </button>          
+          <button type="button" id="aiLogoUseBtn" disabled>Use this</button>
+          <button type="button" id="aiLogoDownloadBtn" disabled>Download</button>
+        </div>
+
+        <div class="ai-preview" id="aiLogoPreview" aria-live="polite">
+          <div class="ai-preview-card" id="aiLogoPreviewCard">
+            <img id="aiLogoPreviewImg" alt="AI preview" style="max-width:100%;display:none"/>
+            <div id="aiLogoPlaceholder" class="ai-placeholder" aria-hidden="true">
+              Image Preview Here
+            </div>
+          </div>
+        </div>
+        
+      </form>
+    </div>
+  </div>
+  <!-- Pro Upsell (custom modal, same system as AI modal) -->
+  <div class="ai-modal-backdrop" id="upsellModal" hidden aria-hidden="true">
+    <div class="ai-modal" role="dialog" aria-modal="true" aria-labelledby="upsellTitle">
+      <header class="ai-modal-header">
+        <h3 id="upsellTitle">Woah! You discovered a Pro feature</h3>
+        <button type="button" class="ai-iconbtn" id="upsellXBtn" aria-label="Close">✕</button>
+      </header>
+
+      <div class="ai-modal-body">
+        Unlock AI logo generation and more with FastWatermarker Pro.
+      </div>
+
+      <div class="ai-actions" style="gap:.5rem">
+        <a href="/pricing" class="btn btn-primary" id="upsellGoPricing">See plans</a>
+        <button type="button" class="btn btn-outline-secondary" id="upsellCloseBtn">Maybe later</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .remove-btn { position: absolute; top: 5px; right: 5px; background: rgba(0, 0, 0, 0.7); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; padding: 0; }
+    .remove-btn:hover { background: rgba(255, 0, 0, 0.8); }
+    .preview-wrapper { position: relative; }
+  </style>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!window.Clerk) return;
+      await window.Clerk.load();
+
+      const mount = () => {
+        const userBtn = document.getElementById('clerk-user-button-upload');
+        const signIn = document.getElementById('clerk-signin-link-upload');
+
+        if (window.Clerk.isSignedIn) {
+          signIn && (signIn.style.display = 'none');
+          if (userBtn) {
+            userBtn.style.display = '';
+            window.Clerk.mountUserButton(userBtn, {
+              appearance: {
+                elements: {
+                  userButtonPopoverCard: 'shadow-lg',
+                }
+              }
+            });
+          }
+        } else {
+          userBtn && (userBtn.innerHTML = '');
+          signIn && (signIn.style.display = '');
+        }
+      };
+
+      mount();
+      // Re-apply when auth state changes (e.g., after login)
+      window.Clerk?.addListener?.(mount);
+    });
+  </script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // -----------------------------
+      // Grab elements used by both features
+      // -----------------------------
+      const aiBtn = document.getElementById('aiLogoOpenBtn');
+
+      // AI modal bits
+      const aiModal = document.getElementById('aiLogoModal');
+      const aiCloseBtn = document.getElementById('aiLogoCloseBtn');
+
+      // Upsell modal bits (custom “AI-style” modal)
+      const upsell = document.getElementById('upsellModal');
+      const upsellXBtn = document.getElementById('upsellXBtn');
+      const upsellCloseBtn = document.getElementById('upsellCloseBtn');
+      const upsellGoPricing = document.getElementById('upsellGoPricing');
+
+      // Upload gating bits
+      const fileInput = document.getElementById('fileInput');
+      const dropTitle = document.querySelector('#dropZone .dz-title');
+      const dropSub   = document.querySelector('#dropZone .dz-sub');
+      const nonProUploads = document.getElementById('nonProNoticeUploads');
+
+      // State
+      let isPro = false;
+
+      // -----------------------------
+      // Shared helpers: open/close overlays (no globals)
+      // -----------------------------
+      function openOverlay(el) {
+        if (!el) return;
+        el.hidden = false;
+        el.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+      function closeOverlay(el, focusEl) {
+        if (!el) return;
+        el.hidden = true;
+        el.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        focusEl?.focus?.();
+      }
+
+      // -----------------------------
+      // AI modal open/close
+      // -----------------------------
+      function openAIModal() {
+        openOverlay(aiModal);
+        aiModal?.querySelector('#aiLogoForm [name="text"]')?.focus();
+      }
+      function closeAIModal() {
+        closeOverlay(aiModal, aiBtn);
+      }
+      aiCloseBtn?.addEventListener('click', closeAIModal);
+      aiModal?.addEventListener('click', (e) => {
+        if (e.target === aiModal) closeAIModal();
+      });
+
+      // -----------------------------
+      // Upsell open/close
+      // -----------------------------
+      function openUpsell() {
+        openOverlay(upsell);
+      }
+      function closeUpsell() {
+        closeOverlay(upsell, aiBtn);
+      }
+      upsellXBtn?.addEventListener('click', closeUpsell);
+      upsellCloseBtn?.addEventListener('click', closeUpsell);
+      upsell?.addEventListener('click', (e) => {
+        if (e.target === upsell) closeUpsell();
+      });
+      upsellGoPricing?.addEventListener('click', () => {
+        // optional: close before navigating
+        closeUpsell();
+      });
+      // Escape key for both modals
+      window.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (!aiModal?.hidden) return closeAIModal();
+        if (!upsell?.hidden) return closeUpsell();
+      });
+
+      // -----------------------------
+      // Pro check (Clerk)
+      // -----------------------------
+      async function getProStatus() {
+        try {
+          if (!window.Clerk) return false;
+          await window.Clerk.load();
+          const session = window.Clerk.session;
+          if (!window.Clerk.isSignedIn || !session) return false;
+          const res = session.checkAuthorization?.({ plan: 'fastwatermarker_pro' });
+          const authorized = typeof res === 'boolean' ? res : await res;
+          return !!authorized;
+        } catch {
+          return false;
+        }
+      }
+
+      // -----------------------------
+      // Apply gating (uploads + button label)
+      // -----------------------------
+      function applyUploadGating() {
+        if (!isPro) {
+          if (dropTitle) dropTitle.textContent = 'Drag & drop an image or video';
+          if (dropSub)   dropSub.innerHTML = 'or <span class="dz-link">browse</span> your device';
+          fileInput?.removeAttribute('multiple');
+          nonProUploads?.classList.remove('d-none');
+          aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Generate one');
+        } else {
+          fileInput?.setAttribute('multiple', '');
+          nonProUploads?.classList.add('d-none');
+          aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Generate one!');
+        }
+
+        // enforce single file once for non-pro
+        fileInput?.addEventListener('change', () => {
+          if (!isPro && fileInput.files && fileInput.files.length > 1) {
+            const dt = new DataTransfer();
+            dt.items.add(fileInput.files[0]);
+            fileInput.files = dt.files;
+            alert('Multiple uploads are a Pro feature. Kept your first file.');
+          }
+        }, { once: true });
+      }
+
+      // -----------------------------
+      // Wire the button (uses the in-scope openAIModal/openUpsell)
+      // -----------------------------
+      function wireAiButton() {
+        if (!aiBtn) return;
+        // remove previous listeners safely by replacing the node
+        const fresh = aiBtn.cloneNode(true);
+        aiBtn.replaceWith(fresh);
+
+        fresh.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (!isPro) return openUpsell();
+          openAIModal();
+        });
+      }
+
+      // -----------------------------
+      // Init flow
+      // -----------------------------
+      isPro = await getProStatus();
+      applyUploadGating();
+      wireAiButton();
+
+      // If your app can change auth state live, re-evaluate here:
+      window.Clerk?.addListener?.(async () => {
+        isPro = await getProStatus();
+        applyUploadGating();
+        wireAiButton();
+      });
+    });
+  </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // ===== existing vars you already have =====
+      let cachedLogoBlob = null;
+      let cachedObjectURL = null;
+
+      const previewBtnAI = document.getElementById('aiLogoPreviewBtn');
+      const previewLabel = previewBtnAI?.querySelector('.btn-label');
+      const useBtn       = document.getElementById('aiLogoUseBtn');
+      const downloadBtn  = document.getElementById('aiLogoDownloadBtn');   // NEW
+      const previewImg   = document.getElementById('aiLogoPreviewImg');
+      const placeholder  = document.getElementById('aiLogoPlaceholder');
+      const previewWrap  = document.getElementById('aiLogoPreview');
+      const previewCard  = document.getElementById('aiLogoPreviewCard');
+
+      // also need these for "Use this"
+      const logoInput    = document.getElementById('logoInput');
+      const modal        = document.getElementById('aiLogoModal');
+      const openBtn      = document.getElementById('aiLogoOpenBtn');
+
+      const oldLabel     = 'Generate preview';
+      const loadingLabel = 'Generating preview…';
+      const MOCK_MODE    = false;
+
+      function getAIField(name){ return document.querySelector(`#aiLogoForm [name="${name}"]`); }
+      function readAIInputs(){
+        const fd = new FormData(document.getElementById('aiLogoForm'));
+        return {
+          text  : (fd.get('text')   || '').toString().trim(),
+          colors: (fd.get('colors') || '').toString().trim(),
+          style : (fd.get('style')  || '').toString().trim(),
+        };
+      }
+      async function generateLogo({ text, colors, style }) {
+        if (MOCK_MODE) {
+          await new Promise(r=>setTimeout(r,1200));
+          const dummy = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO0Afd0AAAAASUVORK5CYII=";
+          return await (await fetch(dummy)).blob();
+        }
+        const res = await fetch('/api/generate-logo', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(readAIInputs()),
+        });
+        if (!res.ok) throw new Error(await res.text().catch(()=> 'Failed to generate'));
+        return res.blob();
+      }
+      function closeModal() {
+        if (!modal) return;
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden','true');
+        document.body.style.overflow = '';
+        openBtn?.focus();
+      }
+
+      // ===== Generate preview =====
+      previewBtnAI?.addEventListener('click', async () => {
+        const { text } = readAIInputs();
+        if (!text) {
+          useBtn && (useBtn.disabled = true);
+          downloadBtn && (downloadBtn.disabled = true);
+          getAIField('text')?.focus();
+          return;
+        }
+
+        previewBtnAI.disabled = true;
+        previewBtnAI.classList.add('btn-loading');
+        if (previewLabel) previewLabel.textContent = loadingLabel;
+        useBtn && (useBtn.disabled = true);
+        downloadBtn && (downloadBtn.disabled = true);
+
+        previewCard?.classList.add('skeleton');
+        previewWrap?.setAttribute('aria-busy','true');
+
+        try {
+          const blob = await generateLogo(readAIInputs());
+          cachedLogoBlob = blob;
+
+          // replace preview image
+          if (cachedObjectURL) URL.revokeObjectURL(cachedObjectURL);
+          cachedObjectURL = URL.createObjectURL(blob);
+          if (previewImg) {
+            // we'll revoke this URL on load; "Download" will make a fresh one
+            previewImg.onload = () => { try { URL.revokeObjectURL(cachedObjectURL); } catch {} };
+            previewImg.src = cachedObjectURL;
+            previewImg.style.display = 'block';
+          }
+          placeholder && (placeholder.style.display = 'none');
+
+          // enable actions
+          useBtn && (useBtn.disabled = false);
+          downloadBtn && (downloadBtn.disabled = false);
+        } catch (e) {
+          console.warn('Preview generation failed:', e);
+          placeholder && (placeholder.style.display = '');
+          previewImg && (previewImg.style.display = 'none');
+          useBtn && (useBtn.disabled = true);
+          downloadBtn && (downloadBtn.disabled = true);
+        } finally {
+          previewCard?.classList.remove('skeleton');
+          previewWrap?.removeAttribute('aria-busy');
+          previewBtnAI.disabled = false;
+          previewBtnAI.classList.remove('btn-loading');
+          if (previewLabel) previewLabel.textContent = oldLabel;
+        }
+      });
+
+      // ===== Use this =====
+      useBtn?.addEventListener('click', async () => {
+        const payload = readAIInputs();
+        if (!payload.text) return;
+
+        useBtn.disabled = true;
+        const old = useBtn.textContent;
+        useBtn.textContent = 'Attaching…';
+        try {
+          let blob = cachedLogoBlob;
+          if (!blob && !MOCK_MODE) {
+            blob = await generateLogo(payload); // fallback generate
+          }
+          if (!blob) throw new Error('No preview to attach.');
+
+          const file = new File([blob], 'ai-logo.png', { type: 'image/png' });
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          logoInput.files = dt.files;
+          logoInput.dispatchEvent(new Event('change'));
+
+          closeModal();
+        } catch (e) {
+          console.warn('Use failed:', e);
+          // optionally surface a visible inline error element here
+        } finally {
+          useBtn.disabled = false;
+          useBtn.textContent = old;
+        }
+      });
+
+      // ===== Download =====
+      downloadBtn?.addEventListener('click', () => {
+        if (!cachedLogoBlob) return;
+        const { text } = readAIInputs();
+        const base = (text || 'ai-logo')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g,'-')
+          .replace(/^-+|-+$/g,'')
+          .slice(0,50) || 'ai-logo';
+        const url = URL.createObjectURL(cachedLogoBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${base}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      });
+
+      // expose for debugging if you want
+      window.__aiLogo = { get blob(){ return cachedLogoBlob; } };
+    });
+    </script>
+
+  <script>
+document.addEventListener('DOMContentLoaded', () => {
+  // ----- elements -----
+  const fileInput   = document.getElementById('fileInput');
+  const dropZone    = document.getElementById('dropZone');
+  const previewWrap = document.getElementById('previewContainer');
+  const logoInput   = document.getElementById('logoInput');
+  const logoZone    = document.getElementById('logoDropZone');
+  const logoWrap    = document.getElementById('logoPreviewContainer');
+  const statusErr   = document.getElementById('statusErrorFiles') || document.getElementById('statusError');
+
+  // limits
+  const MAX_IMAGE_MB = 25;
+  const MAX_VIDEO_MB = 300;
+
+  // ----- helpers -----
+  const showErr = (msg) => { if (!statusErr) return; statusErr.textContent = msg; statusErr.classList.remove('d-none'); };
+  const hideErr = () => { statusErr?.classList.add('d-none'); };
+
+  function addFilesToInput(fileList) {
+    const dt = new DataTransfer();
+    const existing = Array.from(fileInput.files || []);
+    const incoming = Array.from(fileList || []);
+    const combined = [...existing, ...incoming].slice(0, 20);
+    combined.forEach(f => dt.items.add(f));
+    fileInput.files = dt.files;
+    fileInput.dispatchEvent(new Event('change'));
+  }
+
+  function renderMediaPreviews() {
+    hideErr();
+    previewWrap.innerHTML = '';
+    const files = fileInput.files || [];
+    if (files.length > 20) {
+      showErr('You can only upload up to 20 files at once.');
+      fileInput.value = '';
+      return;
+    }
+
+    Array.from(files).forEach((f, index) => {
+      const mb = f.size / (1024 * 1024);
+      const isVideo = /^video\//.test(f.type);
+      const limit = isVideo ? MAX_VIDEO_MB : MAX_IMAGE_MB;
+      if (mb > limit) { showErr(`${f.name} exceeds ${limit} MB.`); return; }
+
+      const col = document.createElement('div'); col.className = 'col';
+      const card = document.createElement('div'); card.className = 'card h-100';
+      const wrapper = document.createElement('div'); wrapper.className = 'preview-wrapper';
+
+      const url = URL.createObjectURL(f);
+
+      if (isVideo) {
+        const shell = document.createElement('div'); shell.className = 'video-thumb';
+
+        const img = document.createElement('img');
+        img.className = 'thumb-img card-img-top';
+        img.alt = f.name;
+        shell.appendChild(img);
+
+        const video = document.createElement('video');
+        video.src = url; video.preload = 'metadata'; video.playsInline = true;
+        video.setAttribute('playsinline',''); video.muted = true; video.controls = false;
+        video.style.display = 'none'; video.className = 'card-img-top';
+        shell.appendChild(video);
+
+        const overlay = document.createElement('button');
+        overlay.type = 'button'; overlay.className = 'play-overlay';
+        overlay.innerHTML = `
+          <svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="27" cy="27" r="26" fill="rgba(0,0,0,.55)" stroke="white" stroke-width="2"/>
+            <polygon points="22,17 22,37 38,27" fill="white"/>
+          </svg>`;
+        shell.appendChild(overlay);
+
+        function drawThumb() {
+          const w = video.videoWidth, h = video.videoHeight;
+          if (!w || !h) return;
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          try { ctx.drawImage(video, 0, 0, w, h); img.src = canvas.toDataURL('image/jpeg', 0.72); } catch {}
+        }
+        function makeThumbAfterSeek() {
+          if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+            video.requestVideoFrameCallback(() => { drawThumb(); });
+          } else {
+            const onSeeked = () => { video.removeEventListener('seeked', onSeeked); if (video.readyState >= 2) drawThumb(); else setTimeout(drawThumb, 50); };
+            video.addEventListener('seeked', onSeeked);
+          }
+        }
+        video.addEventListener('loadedmetadata', () => {
+          const t = Math.min(0.1, (video.duration || 1) - 0.001);
+          makeThumbAfterSeek();
+          try { video.currentTime = t; } catch { setTimeout(() => { try { video.currentTime = t; } catch {} }, 30); }
+        }, { once: true });
+
+        overlay.addEventListener('click', () => {
+          overlay.remove(); img.style.display = 'none';
+          video.style.display = ''; video.controls = true; video.muted = false;
+          video.play().catch(() => {});
+        });
+
+        wrapper.appendChild(shell);
+        wrapper.addEventListener('DOMNodeRemoved', () => URL.revokeObjectURL(url), { once: true });
+      } else {
+        const img = document.createElement('img');
+        img.alt = f.name; img.className = 'card-img-top';
+        img.style.height = '140px'; img.style.objectFit = 'cover';
+        img.src = url; img.onload = () => URL.revokeObjectURL(url);
+        wrapper.appendChild(img);
+      }
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn'; removeBtn.innerHTML = '×'; removeBtn.title = 'Remove file';
+      removeBtn.addEventListener('click', () => {
+        const dt = new DataTransfer();
+        Array.from(fileInput.files).forEach((file, i) => { if (i !== index) dt.items.add(file); });
+        fileInput.files = dt.files;
+        fileInput.dispatchEvent(new Event('change'));
+      });
+      wrapper.appendChild(removeBtn);
+
+      const cap = document.createElement('div');
+      cap.className = 'card-body py-2';
+      cap.innerHTML = `<small class="text-truncate d-block">${f.name}</small>`;
+
+      card.appendChild(wrapper); card.appendChild(cap);
+      col.appendChild(card);
+      previewWrap.appendChild(col);
+    });
+  }
+
+  function setLogoFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Logo must be an image.'); return; }
+    const mb = file.size / (1024*1024);
+    if (mb > 25) { alert('Logo exceeds 25 MB.'); return; }
+
+    const dt = new DataTransfer(); dt.items.add(file);
+    logoInput.files = dt.files;
+
+    // render preview
+    logoWrap.innerHTML = '';
+    const wrap = document.createElement('div'); wrap.className = 'preview-wrapper';
+    const img = document.createElement('img');
+    img.alt = 'Logo preview'; img.className = 'img-thumbnail mt-2'; img.style.maxHeight = '120px';
+    const url = URL.createObjectURL(file); img.src = url;
+    img.onload = () => URL.revokeObjectURL(url);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-btn'; removeBtn.title = 'Remove logo'; removeBtn.innerHTML = '×';
+    removeBtn.addEventListener('click', () => { logoInput.value = ''; logoWrap.innerHTML = ''; });
+
+    wrap.appendChild(img); wrap.appendChild(removeBtn);
+    logoWrap.appendChild(wrap);
+  }
+
+  // ----- WIRE: Media file(s) zone -----
+  dropZone?.addEventListener('click', () => fileInput?.click());
+  dropZone?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput?.click(); }
+  });
+  ['dragenter','dragover'].forEach(ev => dropZone?.addEventListener(ev, (e) => {
+    e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover');
+  }));
+  ['dragleave','dragend','drop'].forEach(ev => dropZone?.addEventListener(ev, (e) => {
+    e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('dragover');
+  }));
+  dropZone?.addEventListener('drop', (e) => {
+    const items = e.dataTransfer?.items;
+    if (items && items.length) {
+      const files = [];
+      for (const it of items) { if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); } }
+      addFilesToInput(files);
+    } else if (e.dataTransfer?.files?.length) {
+      addFilesToInput(e.dataTransfer.files);
+    }
+  });
+  dropZone?.addEventListener('paste', (e) => {
+    const files = [];
+    for (const it of e.clipboardData.items) { if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); } }
+    if (files.length) { e.preventDefault(); addFilesToInput(files); }
+  });
+  fileInput?.addEventListener('change', renderMediaPreviews);
+
+  // ----- WIRE: Logo zone -----
+  logoZone?.addEventListener('click', () => logoInput?.click());
+  logoZone?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); logoInput?.click(); }
+  });
+  ['dragenter','dragover'].forEach(ev => logoZone?.addEventListener(ev, (e) => {
+    e.preventDefault(); e.stopPropagation(); logoZone.classList.add('dragover');
+  }));
+  ['dragleave','dragend','drop'].forEach(ev => logoZone?.addEventListener(ev, (e) => {
+    e.preventDefault(); e.stopPropagation(); logoZone.classList.remove('dragover');
+  }));
+  logoZone?.addEventListener('drop', (e) => {
+    let file = null;
+    const items = e.dataTransfer?.items;
+    if (items && items.length) {
+      for (const it of items) { if (it.kind === 'file') { const f = it.getAsFile(); if (f && f.type.startsWith('image/')) { file = f; break; } } }
+    } else if (e.dataTransfer?.files?.length) {
+      file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/')) || null;
+    }
+    if (file) setLogoFile(file);
+  });
+  logoZone?.addEventListener('paste', (e) => {
+    const item = [...e.clipboardData.items].find(it => it.kind === 'file');
+    const file = item?.getAsFile();
+    if (file && file.type.startsWith('image/')) { e.preventDefault(); setLogoFile(file); }
+  });
+  logoInput?.addEventListener('change', () => {
+    // when "Use this" sets logoInput.files, keep preview in sync
+    const f = logoInput.files?.[0];
+    if (f) setLogoFile(f);
+  });
+});
+</script>
+<script>
+(function initPositionGrid(){
+  const grid   = document.querySelector('.pos-grid');
+  const hidden = document.getElementById('positionInput');
+  if (!grid || !hidden) return;
+
+  // Click to select (ignores disabled cells)
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.pos-cell[data-pos]:not(.pos-disabled)');
+    if (!btn || !grid.contains(btn)) return;
+
+    // update active state
+    grid.querySelectorAll('.pos-cell[data-pos].active')
+        .forEach(el => el.classList.remove('active'));
+    btn.classList.add('active');
+
+    // update hidden field for backend
+    hidden.value = btn.dataset.pos || 'center';
+  });
+
+  // Keyboard support
+  grid.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') &&
+        e.target.matches('.pos-cell[data-pos]:not(.pos-disabled)')) {
+      e.preventDefault();
+      e.target.click();
+    }
+  });
+
+  // Ensure initial state matches hidden input on load
+  const current = hidden.value || 'center';
+  const currentBtn = grid.querySelector(`.pos-cell[data-pos="${current}"]`);
+  if (currentBtn) {
+    grid.querySelectorAll('.pos-cell[data-pos].active')
+        .forEach(el => el.classList.remove('active'));
+    currentBtn.classList.add('active');
+  }
+})();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form        = document.getElementById('wmForm');
+  if (!form) return;
+
+  const loadingEl   = form.querySelector('#statusLoading');             // <- spinner
+  const successEl   = form.querySelector('#statusSuccess');
+  const errorEl     = document.getElementById('statusErrorGlobal') || form.querySelector('#statusError');
+  const downloadEl  = form.querySelector('#downloadLink');
+  const outNameEl   = form.querySelector('#outName');
+  const submitBtn   = form.querySelector('#submitBtn');
+  const logoInput   = form.querySelector('#logoInput');
+  const wmTextInput = form.querySelector('#wmText');
+  const wmReqMsg    = form.querySelector('#wmReqMsg');
+
+  const hasLogo = () => logoInput?.files?.length > 0;
+  const hasText = () => !!wmTextInput?.value.trim();
+
+  let triedSubmit = false;
+
+  function show(el){
+    if (!el) return;
+    el.classList.remove('d-none');
+    el.removeAttribute('hidden');
+    el.style.display = ''; // force visible
+  }
+  function hide(el){
+    if (!el) return;
+    el.classList.add('d-none');
+    el.setAttribute('hidden','');
+    el.style.display = 'none';
+  }
+  function setLoading(on){
+    if (on) {
+      hide(successEl);
+      hide(errorEl);
+      show(loadingEl);
+      // force a reflow so the spinner actually paints before the fetch awaits
+      // (helps in very fast responses)
+      loadingEl && loadingEl.offsetHeight; 
+    } else {
+      hide(loadingEl);
+    }
+    if (submitBtn) submitBtn.disabled = on;
+  }
+
+  function validateReq(){
+    if (!triedSubmit) return;
+    const ok = hasLogo() || hasText();
+    if (wmReqMsg) wmReqMsg.classList.toggle('d-none', ok);
+  }
+  wmTextInput?.addEventListener('input', validateReq);
+  logoInput?.addEventListener('change', validateReq);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const ok = hasLogo() || hasText();
+    if (!ok){
+      triedSubmit = true;
+      wmReqMsg && wmReqMsg.classList.remove('d-none');
+      wmTextInput?.focus();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const fd  = new FormData(form);
+      const res = await fetch(form.action || '/upload-multi', { method: 'POST', body: fd });
+
+      if (!res.ok){
+        const txt = await res.text().catch(()=> '');
+        throw new Error(txt || `Upload failed (${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      if (downloadEl) downloadEl.href = url;
+      if (downloadEl) downloadEl.download = 'watermarked.zip';
+      if (outNameEl)  outNameEl.textContent = 'watermarked.zip';
+
+      setLoading(false);
+      show(successEl);
+    } catch (err){
+      setLoading(false);
+      if (errorEl){
+        errorEl.textContent = err?.message || 'Something went wrong.';
+        show(errorEl);
+      }
+    }
+  });
+});
+</script>
+{% endblock %}

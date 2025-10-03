@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Sign in · FastWatermarker{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center">
+  <a href="/" class="text-decoration-none">
+      <img
+      class="brand-logo"
+      src="{{ url_for('static', path='images/logo.png') }}"
+      alt="Fast Watermarker"
+      style="max-width: 225px; height: auto;"
+      loading="eager" decoding="async"
+      />
+  </a>
+</div>
+<div class="container py-2">
+  <div class="row justify-content-center">
+    <div class="col-md-5">
+      <div id="clerk-sign-in"></div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    await Clerk.load();
+    Clerk.mountSignIn(document.getElementById('clerk-sign-in'), {
+      redirectUrl: "/",          // where to send users after sign-in
+      // afterSignUpUrl: "/",    // optional
+    });
+  });
+</script>
+{% endblock %}

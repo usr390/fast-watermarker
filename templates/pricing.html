@@ -1,0 +1,34 @@
+<!-- templates/pricing.html -->
+{% extends "base.html" %}
+{% block title %}Pricing | FastWatermarker{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center">
+  <a href="/" class="text-decoration-none">
+      <img
+      class="brand-logo"
+      src="{{ url_for('static', path='images/logo.png') }}"
+      alt="Fast Watermarker"
+      style="max-width: 225px; height: auto;"
+      loading="eager" decoding="async"
+      />
+  </a>
+</div>
+<div class="container py-2">
+  <h1 class="h3 text-center mb-4 fw-bold text-white">Choose a plan</h1>
+  <div id="pricing-table" class="mx-auto" style="max-width:960px"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.addEventListener('load', async () => {
+    // Ensure Clerk is loaded (you already included the <script ... clerk-js@5> in base.html)
+    await Clerk.load();
+
+    // Signed-out users can still see the table; Clerk will ask them to sign in during checkout.
+    const el = document.getElementById('pricing-table');
+    Clerk.mountPricingTable(el);
+  });
+</script>
+{% endblock %}
