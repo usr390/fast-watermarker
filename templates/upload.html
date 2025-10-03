@@ -3,41 +3,35 @@
 
 {% block content %}
 <!-- Upload navbar (logo + hamburger + profile) -->
-<!-- Upload navbar: centered logo + profile + always-collapsed hamburger -->
-<nav class="navbar navbar-dark bg-transparent mb-3" id="uploadTopbar">
-  <div class="container position-relative py-2 justify-content-center">
+<nav class="navbar navbar-expand-lg navbar-dark bg-transparent mb-4">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+      <img src="{{ url_for('static', path='images/logo.png') }}" alt="FastWatermarker" height="120" />
+    </a>
 
-    <!-- Right side: profile first, then hamburger -->
-    <div class="topbar-controls position-absolute end-0 d-flex align-items-center gap-2" style="z-index:2;">
-      <div id="clerk-user-button-upload" style="display:none"></div>
-      <a id="clerk-signin-link-upload" class="btn btn-outline-light btn-sm" href="/login">Sign in</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+            data-bs-target="#fwNavUpload" aria-controls="fwNavUpload"
+            aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
 
-      <button class="navbar-toggler" type="button"
-              data-bs-toggle="collapse" data-bs-target="#uploadNav"
-              aria-controls="uploadNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-    </div>
-
-    <!-- Centered brand (unchanged) -->
-    <div class="d-flex align-items-center justify-content-center my-5 w-100">
-      <a href="/" class="text-decoration-none mx-auto">
-        <img class="brand-logo" src="{{ url_for('static', path='images/logo.png') }}"
-             alt="Fast Watermarker" style="max-width:225px;height:auto;" loading="eager" decoding="async" />
-      </a>
-    </div>
-  </div>
-
-  <!-- Collapsed menu -->
-  <div class="collapse" id="uploadNav">
-    <div class="container">
-      <ul class="navbar-nav ms-auto">
+    <div class="collapse navbar-collapse pt-2 pb-3" id="fwNavUpload">
+      <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
         <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
         <li class="nav-item"><a class="nav-link" href="/#how">How it works</a></li>
         <li class="nav-item"><a class="nav-link" href="/#pricing">Pricing</a></li>
         <li class="nav-item"><a class="nav-link" href="/#testimonials">Reviews</a></li>
         <li class="nav-item"><a class="nav-link" href="/#faq">FAQ</a></li>
       </ul>
+
+      <div class="ms-lg-3 mt-3 mt-lg-0 d-flex gap-2 align-items-center mb-2 mb-lg-0">
+        <!-- Clerk avatar (signed in) -->
+        <div id="clerk-user-button-upload" style="display:none"></div>
+        <!-- Fallback (signed out) -->
+        <a id="clerk-signin-link-upload" class="btn btn-outline-light" href="/login">Sign in</a>
+        <!-- Optional CTA (hidden on upload page) -->
+        <a class="btn btn-primary d-none d-lg-inline-block disabled" tabindex="-1" aria-disabled="true">Start watermarking</a>
+      </div>
     </div>
   </div>
 </nav>
@@ -46,9 +40,6 @@
     <div class="mb-3">
       <label class="form-label d-flex align-items-center justify-content-between">
         <span>Media file(s)</span>
-        <small id="nonProNoticeUploads" class="text-muted d-none">
-          Multiple uploads require <a href="/pricing" class="linklike">FastWatermarker Pro</a>.
-        </small>
       </label>
       <input id="fileInput" class="visually-hidden" type="file" name="files"
             accept="image/*,video/*" multiple required>
@@ -57,6 +48,10 @@
         <div class="dz-title">Drag & drop images or videos</div>
         <div class="dz-sub">or <span class="dz-link">browse</span> your device</div>
       </div>
+      <small id="nonProNoticeUploads"
+            class="text-muted d-none ai-logo-cta d-inline-flex align-items-center gap-1">
+        Multiple uploads require <a href="/pricing" class="linklike">FastWatermarker Pro</a>.
+      </small>
       <div id="previewContainer" class="row row-cols-2 row-cols-md-3 g-2 mt-2"></div>
       <div id="statusErrorFiles" class="alert alert-danger d-none mt-3 mb-0" role="alert" aria-live="assertive"></div>
     </div>
