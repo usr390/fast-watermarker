@@ -1,19 +1,19 @@
-<!-- templates/pricing.html -->
 {% extends "base.html" %}
 {% block title %}Pricing | FastWatermarker{% endblock %}
 
 {% block content %}
 <div class="d-flex align-items-center justify-content-center">
   <a href="/" class="text-decoration-none">
-      <img
+    <img
       class="brand-logo"
       src="{{ url_for('static', path='images/logo.png') }}"
       alt="Fast Watermarker"
       style="max-width: 225px; height: auto;"
       loading="eager" decoding="async"
-      />
+    />
   </a>
 </div>
+
 <div class="container py-2">
   <h1 class="h3 text-center mb-4 fw-bold text-white">Choose a plan</h1>
   <div id="pricing-table" class="mx-auto" style="max-width:960px"></div>
@@ -22,10 +22,21 @@
 
 {% block scripts %}
 <script>
-  window.addEventListener('load', async () => {
-    await window.Clerk.load(); // safe to call; it’s idempotent
-    const el = document.getElementById('pricing-table');
-    if (el) window.Clerk.mountPricingTable(el);
+  window.addEventListener('pageshow', async () => {
+    if (!window.Clerk) return;
+    try {
+      await window.Clerk.load();
+
+      const el = document.getElementById('pricing-table');
+      if (!el) return;
+
+      // Avoid duplicate mounts on bfcache restores
+      el.innerHTML = '';
+
+      window.Clerk.mountPricingTable(el);
+    } catch (e) {
+      console.error('Failed to mount PricingTable:', e);
+    }
   });
 </script>
 {% endblock %}

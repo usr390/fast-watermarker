@@ -50,7 +50,6 @@
 </script>
 
 <script>
-  // Run after the page and deferred scripts are parsed
   window.addEventListener('load', async () => {
     if (!window.Clerk) {
       console.error('Clerk script not available yet');
@@ -60,12 +59,10 @@
     try {
       await window.Clerk.load();
 
-      // OPTIONAL: basic signed-in toggle
       const userBtnEl = document.getElementById('clerk-user-button');
       const signInLink = document.getElementById('clerk-signin-link');
 
-      const auth = await window.Clerk.auth();
-      const isSignedIn = !!auth.userId;
+      const isSignedIn = !!window.Clerk.user;
 
       if (isSignedIn) {
         signInLink && (signInLink.style.display = 'none');
@@ -77,6 +74,18 @@
         signInLink && (signInLink.style.display = '');
         userBtnEl && (userBtnEl.innerHTML = '');
       }
+
+      // Optional: keep UI in sync if auth state changes later
+      window.Clerk.addListener(({ user }) => {
+        const signedInNow = !!user;
+        if (signedInNow) {
+          signInLink && (signInLink.style.display = 'none');
+          userBtnEl && window.Clerk.mountUserButton(userBtnEl);
+        } else {
+          signInLink && (signInLink.style.display = '');
+          userBtnEl && (userBtnEl.innerHTML = '');
+        }
+      });
     } catch (err) {
       console.error('Error loading Clerk:', err);
     }

@@ -4,15 +4,16 @@
 {% block content %}
 <div class="d-flex align-items-center justify-content-center">
   <a href="/" class="text-decoration-none">
-      <img
+    <img
       class="brand-logo"
       src="{{ url_for('static', path='images/logo.png') }}"
       alt="Fast Watermarker"
       style="max-width: 225px; height: auto;"
       loading="eager" decoding="async"
-      />
+    />
   </a>
 </div>
+
 <div class="container py-2">
   <div class="row justify-content-center">
     <div class="col-md-5">
@@ -20,14 +21,28 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-  window.addEventListener('load', async () => {
-    await window.Clerk.load();
-    const target = document.getElementById('clerk-sign-in');
-    if (target) {
+  // Use pageshow so it fires even from bfcache (back/forward)
+  window.addEventListener('pageshow', async () => {
+    if (!window.Clerk) return;
+    try {
+      await window.Clerk.load();
+
+      const target = document.getElementById('clerk-sign-in');
+      if (!target) return;
+
+      // Avoid duplicate mounts on bfcache restores
+      target.innerHTML = '';
+
       window.Clerk.mountSignIn(target, {
-        redirectUrl: "/"
+        redirectUrl: '/',
+        // afterSignUpUrl: '/',
       });
+    } catch (e) {
+      console.error('Failed to mount SignIn:', e);
     }
   });
 </script>
