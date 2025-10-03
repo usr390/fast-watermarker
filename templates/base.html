@@ -40,53 +40,36 @@
       </div>
     </footer>
 
-<!-- Prefer CDN until your custom domain is fully verified -->
-<script
-  async
-  crossorigin="anonymous"
-  src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-  data-clerk-publishable-key="pk_live_Y2xlcmsuZmFzdHdhdGVybWFya2VyLmNvbSQ"
-  data-clerk-frontend-api="clerk.fastwatermarker.com">
-</script>
+    <script
+      async
+      crossorigin="anonymous"
+      data-clerk-publishable-key="pk_live_Y2xlcmsuZmFzdHdhdGVybWFya2VyLmNvbSQ"
+      src="https://clerk.fastwatermarker.com/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+      type="text/javascript">
+    </script>
 
     <script>
-      // Wait for the global to exist (handles async race)
-      function waitForClerk(timeoutMs = 5000) {
-        return new Promise((resolve, reject) => {
-          if (window.Clerk) return resolve(window.Clerk);
-          const start = Date.now();
-          const iv = setInterval(() => {
-            if (window.Clerk) {
-              clearInterval(iv);
-              resolve(window.Clerk);
-            } else if (Date.now() - start > timeoutMs) {
-              clearInterval(iv);
-              reject(new Error('Clerk script did not load in time'));
-            }
-          }, 50);
-        });
-      }
-
       document.addEventListener('DOMContentLoaded', async () => {
-        try {
-          const Clerk = await waitForClerk();   // <-- guarantees the global
-          await Clerk.load();
+        if (!window.Clerk) {
+          console.error('Clerk failed to load. Is the src domain/key correct?');
+          return;
+        }
 
-          const userBtnEl = document.getElementById('clerk-user-button');
-          const signInLink = document.getElementById('clerk-signin-link');
+        await window.Clerk.load();
 
-          if (Clerk.isSignedIn) {
-            if (signInLink) signInLink.style.display = 'none';
-            if (userBtnEl) {
-              userBtnEl.style.display = '';
-              Clerk.mountUserButton(userBtnEl);
-            }
-          } else {
-            if (signInLink) signInLink.style.display = '';
-            if (userBtnEl) userBtnEl.innerHTML = '';
+        // Example: mount user button or sign-in
+        const userBtnEl = document.getElementById('clerk-user-button');
+        const signInLink = document.getElementById('clerk-signin-link');
+
+        if (window.Clerk.isSignedIn) {
+          signInLink && (signInLink.style.display = 'none');
+          if (userBtnEl) {
+            userBtnEl.style.display = '';
+            window.Clerk.mountUserButton(userBtnEl);
           }
-        } catch (err) {
-          console.error('Clerk failed to load:', err);
+        } else {
+          signInLink && (signInLink.style.display = '');
+          userBtnEl && (userBtnEl.innerHTML = '');
         }
       });
     </script>

@@ -21,7 +21,7 @@
   </div>
 </div>
 <script>
-  document.addEventListener('DOMContentLoaded', async () => {
+  window.addEventListener('DOMContentLoaded', async () => {
     await Clerk.load();
     Clerk.mountSignIn(document.getElementById('clerk-sign-in'), {
       redirectUrl: "/",          // where to send users after sign-in
