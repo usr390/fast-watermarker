@@ -309,3 +309,10 @@ body.scrolled .fw-nav {
 @media (min-width: 768px) {
   #uploadTopbar .topbar-controls { top: 6.6rem; }            /* tablet+ */
 }
+/* keep it looking like one sentence (no breaks) */
+#nonProNoticeUploads { white-space: nowrap; }
+
+/* optional: allow wrapping on very narrow phones */
+@media (max-width: 400px){
+  #nonProNoticeUploads { white-space: normal; }
+}
