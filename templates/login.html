@@ -21,12 +21,14 @@
   </div>
 </div>
 <script>
-  window.addEventListener('DOMContentLoaded', async () => {
-    await Clerk.load();
-    Clerk.mountSignIn(document.getElementById('clerk-sign-in'), {
-      redirectUrl: "/",          // where to send users after sign-in
-      // afterSignUpUrl: "/",    // optional
-    });
+  window.addEventListener('load', async () => {
+    await window.Clerk.load();
+    const target = document.getElementById('clerk-sign-in');
+    if (target) {
+      window.Clerk.mountSignIn(target, {
+        redirectUrl: "/"
+      });
+    }
   });
 </script>
 {% endblock %}

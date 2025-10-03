@@ -23,12 +23,9 @@
 {% block scripts %}
 <script>
   window.addEventListener('load', async () => {
-    // Ensure Clerk is loaded (you already included the <script ... clerk-js@5> in base.html)
-    await Clerk.load();
-
-    // Signed-out users can still see the table; Clerk will ask them to sign in during checkout.
+    await window.Clerk.load(); // safe to call; it’s idempotent
     const el = document.getElementById('pricing-table');
-    Clerk.mountPricingTable(el);
+    if (el) window.Clerk.mountPricingTable(el);
   });
 </script>
 {% endblock %}
