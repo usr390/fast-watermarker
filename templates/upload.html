@@ -343,19 +343,25 @@
       // Apply gating (uploads + button label)
       // -----------------------------
       function applyUploadGating() {
+        const form = document.getElementById('wmForm');
+
         if (!isPro) {
+          // Non-Pro: single file + /upload
           if (dropTitle) dropTitle.textContent = 'Drag & drop an image or video';
           if (dropSub)   dropSub.innerHTML = 'or <span class="dz-link">browse</span> your device';
           fileInput?.removeAttribute('multiple');
           nonProUploads?.classList.remove('d-none');
           aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Generate one');
+          if (form) form.action = '/upload';
         } else {
+          // Pro: multiple files + /upload-multi
           fileInput?.setAttribute('multiple', '');
           nonProUploads?.classList.add('d-none');
           aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Generate one!');
+          if (form) form.action = '/upload-multi';
         }
 
-        // enforce single file once for non-pro
+        // enforce single file once for non-pro (unchanged)
         fileInput?.addEventListener('change', () => {
           if (!isPro && fileInput.files && fileInput.files.length > 1) {
             const dt = new DataTransfer();
@@ -821,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const form        = document.getElementById('wmForm');
   if (!form) return;
 
-  const loadingEl   = form.querySelector('#statusLoading');             // <- spinner
+  const loadingEl   = form.querySelector('#statusLoading');
   const successEl   = form.querySelector('#statusSuccess');
   const errorEl     = document.getElementById('statusErrorGlobal') || form.querySelector('#statusError');
   const downloadEl  = form.querySelector('#downloadLink');
@@ -840,7 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     el.classList.remove('d-none');
     el.removeAttribute('hidden');
-    el.style.display = ''; // force visible
+    el.style.display = '';
   }
   function hide(el){
     if (!el) return;
@@ -853,9 +859,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hide(successEl);
       hide(errorEl);
       show(loadingEl);
-      // force a reflow so the spinner actually paints before the fetch awaits
-      // (helps in very fast responses)
-      loadingEl && loadingEl.offsetHeight; 
+      loadingEl && loadingEl.offsetHeight;
     } else {
       hide(loadingEl);
     }
@@ -883,8 +887,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setLoading(true);
     try {
-      const fd  = new FormData(form);
-      const res = await fetch(form.action || '/upload-multi', { method: 'POST', body: fd });
+      // Build FormData
+      let fd = new FormData(form);
+
+      // If targeting /upload (single-file endpoint), remap 'files' -> 'file' (first item)
+      const action = form.action || '/upload-multi';
+      if (action.endsWith('/upload')) {
+        const files = fd.getAll('files');
+        fd.delete('files');
+        if (files && files.length > 0) {
+          fd.append('file', files[0]);
+        }
+      }
+
+      const res = await fetch(action, { method: 'POST', body: fd });
 
       if (!res.ok){
         const txt = await res.text().catch(()=> '');
@@ -892,10 +908,39 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const blob = await res.blob();
+
+      // Try to extract filename from Content-Disposition (works for both endpoints)
+      const cd = res.headers.get('Content-Disposition') || '';
+      let filename = '';
+
+      // RFC 5987: filename*=UTF-8''...
+      let m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+      if (m && m[1]) {
+        try { filename = decodeURIComponent(m[1]); } catch { filename = m[1]; }
+      } else {
+        // Fallback: filename="..."
+        m = cd.match(/filename="([^"]+)"/i);
+        if (m && m[1]) filename = m[1];
+      }
+
+      // If no Content-Disposition, choose a sensible default from Content-Type
+      if (!filename) {
+        const ct = (res.headers.get('Content-Type') || '').toLowerCase();
+        if (ct.includes('zip')) filename = 'watermarked.zip';
+        else if (ct.includes('mp4') || ct.includes('video/')) filename = 'watermarked.mp4';
+        else if (ct.includes('png')) filename = 'watermarked.png';
+        else if (ct.includes('jpeg') || ct.includes('jpg')) filename = 'watermarked.jpg';
+        else if (ct.includes('gif')) filename = 'watermarked.gif';
+        else filename = action.endsWith('/upload-multi') ? 'watermarked.zip' : 'watermarked.bin';
+      }
+
+      // Hook up the download link + label
       const url  = URL.createObjectURL(blob);
-      if (downloadEl) downloadEl.href = url;
-      if (downloadEl) downloadEl.download = 'watermarked.zip';
-      if (outNameEl)  outNameEl.textContent = 'watermarked.zip';
+      if (downloadEl) {
+        downloadEl.href = url;
+        downloadEl.download = filename;
+      }
+      if (outNameEl) outNameEl.textContent = filename;
 
       setLoading(false);
       show(successEl);

@@ -69,24 +69,96 @@ async def pricing(request: Request):
 
 @app.post("/upload")
 async def upload(
-    file: UploadFile = File(...), 
-    text: Optional[str] = Form(None), 
-    logo: Optional[UploadFile] = File(None), 
+    file: UploadFile = File(...),
+    text: Optional[str] = Form(None),
+    logo: Optional[UploadFile] = File(None),
     scale: float = Form(0.35),
     position: str = Form("center"),
-    opacity: float = Form(0.9)):
-    
-    base_bytes = await file.read()
-    opacity = max(0.05, min(1.0, float(opacity)))
-    if logo is not None and logo.filename:
-        logo_bytes = await logo.read()
-        output = add_image_watermark_ffmpeg(base_bytes, logo_bytes, scale=scale, opacity=opacity, position=position)
-    else:
-        if not text:
-            return StreamingResponse(io.BytesIO(base_bytes), media_type=file.content_type or "application/octet-stream")
-        output = add_text_watermark_ffmpeg(base_bytes, text, scale, position, opacity)
+    opacity: float = Form(0.9),
+):
+    """
+    Single-file upload that matches /upload-multi behavior:
+    - Accepts image OR video
+    - Enforces same size/duration limits
+    - Requires either logo or text (like /upload-multi)
+    - Uses the same watermarking helpers as multi
+    """
+    # Normalize/validate inputs
+    op = max(0.05, min(1.0, float(opacity)))
+    has_logo = bool(logo and logo.filename)
+    if not has_logo and not text:
+        # Match /upload-multi's "provide a logo or text" behavior
+        return StreamingResponse(
+            io.BytesIO(b'{"detail":"Provide a logo or text"}'),
+            media_type="application/json",
+            headers={"Content-Disposition": "inline"},
+        )
 
-    return StreamingResponse(output, media_type="image/jpeg")
+    raw = await file.read()
+
+    # If a logo is provided, load it once
+    logo_bytes = None
+    if has_logo:
+        logo_bytes = await logo.read()
+
+    # Branch on file type (use the same helpers you use in /upload-multi)
+    if _is_image(file):
+        # Image validations (same as multi)
+        with Image.open(io.BytesIO(raw)) as im:
+            im = ImageOps.exif_transpose(im)
+            if im.width * im.height > MAX_IMAGE_PIXELS:
+                raise HTTPException(
+                    413,
+                    f"{file.filename}: image too large (>{MAX_IMAGE_PIXELS} pixels).",
+                )
+
+        # Process
+        if has_logo:
+            out = add_image_watermark_ffmpeg(
+                raw, logo_bytes, scale=scale, opacity=op, position=position
+            )
+        else:
+            out = add_text_watermark_ffmpeg(
+                raw, text, scale, position, op
+            )
+
+        # Name & respond (jpeg like multi)
+        out_name = f"watermarked_{safe_name(file.filename or 'image', suffix='.jpg')}"
+        headers = {"Content-Disposition": f'attachment; filename="{out_name}"'}
+        return StreamingResponse(out, media_type="image/jpeg", headers=headers)
+
+    elif _is_video(file):
+        # Video validations (same as multi)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".bin") as tf:
+            tf.write(raw)
+            tf.flush()
+            size = os.path.getsize(tf.name)
+            _reject_if_too_large(file.filename or "video", size, is_video=True)
+            meta = _probe_video_meta(tf.name)
+            if meta["duration"] > MAX_VIDEO_DURATION_SEC:
+                raise HTTPException(
+                    413,
+                    f"{file.filename}: video longer than {MAX_VIDEO_DURATION_SEC//60} minutes.",
+                )
+
+        # Process
+        if has_logo:
+            out = watermark_video_with_logo(
+                raw, logo_bytes, scale=scale, opacity=op, position=position
+            )
+        else:
+            out = watermark_video_with_text(
+                raw, text, scale=scale, position=position, opacity=op
+            )
+
+        # Name & respond (mp4 like multi)
+        out_name = f"watermarked_{safe_name(file.filename or 'video', suffix='.mp4')}"
+        headers = {"Content-Disposition": f'attachment; filename="{out_name}"'}
+        return StreamingResponse(out, media_type="video/mp4", headers=headers)
+
+    else:
+        # Unsupported
+        raise HTTPException(status_code=415, detail="Unsupported file type.")
 
 @app.post("/upload-multi")
 async def upload_multi(
