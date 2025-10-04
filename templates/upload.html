@@ -134,6 +134,16 @@
       <a id="downloadLink" class="ms-2" style="color: green" download>Download</a>
     </div>
     <div id="statusErrorGlobal" class="alert alert-danger d-none mt-3 mb-0" role="alert" aria-live="assertive"></div>
+    <div id="inlineResult" class="mt-3 d-none">
+      <figure class="m-0">
+        <img id="resultImg" class="img-fluid rounded shadow-sm d-none" alt="Watermarked result" />
+        <video id="resultVideo" class="w-100 rounded shadow-sm d-none" playsinline controls></video>
+        <figcaption class="small text-muted mt-2">
+          Long-press the image/video to save to Photos. 
+          <a id="openInNewTab" class="ms-2 d-none" target="_blank" rel="noopener">Open in new tab</a>
+        </figcaption>
+      </figure>
+    </div>
   </form>
 
   <div class="ai-modal-backdrop" id="aiLogoModal" hidden aria-hidden="true">
@@ -842,30 +852,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let triedSubmit = false;
 
-  function show(el){
-    if (!el) return;
-    el.classList.remove('d-none');
-    el.removeAttribute('hidden');
-    el.style.display = '';
-  }
-  function hide(el){
-    if (!el) return;
-    el.classList.add('d-none');
-    el.setAttribute('hidden','');
-    el.style.display = 'none';
-  }
+  // ---- small helpers ----
+  function show(el){ if(!el) return; el.classList.remove('d-none'); el.removeAttribute('hidden'); el.style.display=''; }
+  function hide(el){ if(!el) return; el.classList.add('d-none'); el.setAttribute('hidden',''); el.style.display='none'; }
   function setLoading(on){
-    if (on) {
-      hide(successEl);
-      hide(errorEl);
-      show(loadingEl);
-      loadingEl && loadingEl.offsetHeight;
-    } else {
-      hide(loadingEl);
-    }
-    if (submitBtn) submitBtn.disabled = on;
+    if(on){ hide(successEl); hide(errorEl); show(loadingEl); loadingEl && loadingEl.offsetHeight; }
+    else{ hide(loadingEl); }
+    if(submitBtn) submitBtn.disabled = on;
   }
-
   function validateReq(){
     if (!triedSubmit) return;
     const ok = hasLogo() || hasText();
@@ -873,6 +867,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   wmTextInput?.addEventListener('input', validateReq);
   logoInput?.addEventListener('change', validateReq);
+
+  // ---- inline preview container (auto-create if missing) ----
+  function ensureInlinePreview(){
+    let wrap = document.getElementById('inlineResult');
+    if (wrap) return wrap;
+
+    wrap = document.createElement('div');
+    wrap.id = 'inlineResult';
+    wrap.className = 'mt-3 d-none';
+    wrap.innerHTML = `
+      <figure class="m-0">
+        <img id="resultImg" class="img-fluid rounded shadow-sm d-none" alt="Watermarked result"/>
+        <video id="resultVideo" class="w-100 rounded shadow-sm d-none" playsinline controls></video>
+        <figcaption class="small text-muted mt-2">
+          Long-press to save. <a id="openInNewTab" class="ms-2 d-none" target="_blank" rel="noopener">Open in new tab</a>
+        </figcaption>
+      </figure>`;
+    // place it right after the success alert (or at end of form)
+    (successEl?.after ? successEl.after(wrap) : form.appendChild(wrap));
+    return wrap;
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -901,49 +916,73 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const res = await fetch(action, { method: 'POST', body: fd });
-
       if (!res.ok){
         const txt = await res.text().catch(()=> '');
         throw new Error(txt || `Upload failed (${res.status})`);
       }
 
       const blob = await res.blob();
+      const ct = (res.headers.get('Content-Type') || '').toLowerCase();
 
-      // Try to extract filename from Content-Disposition (works for both endpoints)
+      // Extract filename if present
       const cd = res.headers.get('Content-Disposition') || '';
       let filename = '';
-
-      // RFC 5987: filename*=UTF-8''...
       let m = cd.match(/filename\*=UTF-8''([^;]+)/i);
-      if (m && m[1]) {
-        try { filename = decodeURIComponent(m[1]); } catch { filename = m[1]; }
-      } else {
-        // Fallback: filename="..."
+      if (m && m[1]) { try { filename = decodeURIComponent(m[1]); } catch { filename = m[1]; } }
+      else {
         m = cd.match(/filename="([^"]+)"/i);
         if (m && m[1]) filename = m[1];
       }
-
-      // If no Content-Disposition, choose a sensible default from Content-Type
       if (!filename) {
-        const ct = (res.headers.get('Content-Type') || '').toLowerCase();
         if (ct.includes('zip')) filename = 'watermarked.zip';
         else if (ct.includes('mp4') || ct.includes('video/')) filename = 'watermarked.mp4';
         else if (ct.includes('png')) filename = 'watermarked.png';
         else if (ct.includes('jpeg') || ct.includes('jpg')) filename = 'watermarked.jpg';
-        else if (ct.includes('gif')) filename = 'watermarked.gif';
         else filename = action.endsWith('/upload-multi') ? 'watermarked.zip' : 'watermarked.bin';
       }
 
-      // Hook up the download link + label
-      const url  = URL.createObjectURL(blob);
-      if (downloadEl) {
-        downloadEl.href = url;
-        downloadEl.download = filename;
+      const url = URL.createObjectURL(blob);
+
+      // Always wire download link
+      if (downloadEl) { downloadEl.href = url; downloadEl.download = filename; }
+      if (outNameEl)  { outNameEl.textContent = filename; }
+
+      // Inline preview for single-file endpoint
+      const isSingle = action.endsWith('/upload');
+      const inlineWrap  = ensureInlinePreview();
+      const resultImg   = inlineWrap.querySelector('#resultImg');
+      const resultVideo = inlineWrap.querySelector('#resultVideo');
+      const openInNew   = inlineWrap.querySelector('#openInNewTab');
+
+      // reset
+      resultImg.classList.add('d-none');
+      resultVideo.classList.add('d-none');
+      openInNew.classList.add('d-none');
+
+      if (isSingle) {
+        if (ct.startsWith('image/')) {
+          resultImg.src = url;
+          resultImg.alt = filename || 'Watermarked image';
+          resultImg.classList.remove('d-none');
+          inlineWrap.classList.remove('d-none');
+          if (openInNew) { openInNew.href = url; openInNew.textContent = 'Open image'; openInNew.classList.remove('d-none'); }
+          hide(successEl); // avoid duplicate UI; comment this out if you want both
+        } else if (ct.startsWith('video/')) {
+          resultVideo.src = url;
+          resultVideo.classList.remove('d-none');
+          inlineWrap.classList.remove('d-none');
+          if (openInNew) { openInNew.href = url; openInNew.textContent = 'Open video'; openInNew.classList.remove('d-none'); }
+          hide(successEl);
+        } else {
+          // unknown type -> fall back to download UI
+          show(successEl);
+        }
+      } else {
+        // multi-file (zip) -> normal download success UI
+        show(successEl);
       }
-      if (outNameEl) outNameEl.textContent = filename;
 
       setLoading(false);
-      show(successEl);
     } catch (err){
       setLoading(false);
       if (errorEl){
