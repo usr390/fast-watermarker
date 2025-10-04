@@ -46,7 +46,6 @@
       <div id="dropZone" class="dropzone" role="button" tabindex="0">
         <div class="dz-icon">+</div>
         <div class="dz-title">Drag & drop images or videos</div>
-        <div class="dz-sub">or <span class="dz-link">browse</span> your device</div>
       </div>
       <i><small id="nonProNoticeUploads"
             class="d-none ai-logo-cta d-block text-nowrap mt-1">
@@ -63,8 +62,7 @@
       <input id="logoInput" class="visually-hidden" type="file" name="logo" accept="image/svg+xml,image/png,image/*">
       <div id="logoDropZone" class="dropzone dropzone--small" role="button" tabindex="0" aria-label="Drop a logo or click to browse">
         <div class="dz-icon">+</div>
-        <div class="dz-title">Drag & drop a logo</div>
-        <div class="dz-sub">or <span class="dz-link">browse</span> your device</div>
+        <div class="dz-title">Upload a logo</div>
       </div>
 
       <p class="ai-logo-cta d-flex align-items-center justify-content-between">
@@ -357,8 +355,7 @@
 
         if (!isPro) {
           // Non-Pro: single file + /upload
-          if (dropTitle) dropTitle.textContent = 'Drag & drop an image or video';
-          if (dropSub)   dropSub.innerHTML = 'or <span class="dz-link">browse</span> your device';
+          if (dropTitle) dropTitle.textContent = 'Upload an image or video';
           fileInput?.removeAttribute('multiple');
           nonProUploads?.classList.remove('d-none');
           aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Generate one');
