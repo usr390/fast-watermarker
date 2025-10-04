@@ -98,9 +98,9 @@ footer a{ color:var(--brand-yellow); } footer a:hover{ color:#fff; text-decorati
 }
 .dropzone.dragover, .dropzone:hover{ border-color:var(--brand-yellow); background-color:#fffce6; }
 .dropzone .dz-link{ color:var(--brand-yellow); }
-.dropzone .dz-icon{ font-size:36px; color:#888; margin-bottom:8px; }
-.dropzone .dz-title{ font-weight:600; font-size:16px; }
-.dropzone .dz-sub{ font-size:14px; color:#666; }
+.dropzone .dz-icon{ font-size:36px; font-weight:600; color: rgba(136, 136, 136, .35); margin-bottom:8px; }
+.dropzone .dz-title{ font-weight:600; font-size:16px; color: rgba(0,0,0,.20)}
+.dropzone .dz-sub{ font-size:14px; color: rgba(0,0,0,.18); }
 .dropzone.dropzone--small{ padding:24px 16px; }
 
 /* ===== Modal / AI Modal ===== */
@@ -310,9 +310,10 @@ body.scrolled .fw-nav {
   #uploadTopbar .topbar-controls { top: 6.6rem; }            /* tablet+ */
 }
 /* keep it looking like one sentence (no breaks) */
-#nonProNoticeUploads { white-space: nowrap; }
+#nonProNoticeUploads { white-space: nowrap; color: rgba(136, 136, 136, 0.75); }
 
 /* optional: allow wrapping on very narrow phones */
 @media (max-width: 400px){
   #nonProNoticeUploads { white-space: normal; }
 }
+

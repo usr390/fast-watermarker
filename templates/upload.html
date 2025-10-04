@@ -44,14 +44,14 @@
       <input id="fileInput" class="visually-hidden" type="file" name="files"
             accept="image/*,video/*" multiple required>
       <div id="dropZone" class="dropzone" role="button" tabindex="0">
-        <div class="dz-icon">📂</div>
+        <div class="dz-icon">+</div>
         <div class="dz-title">Drag & drop images or videos</div>
         <div class="dz-sub">or <span class="dz-link">browse</span> your device</div>
       </div>
-      <small id="nonProNoticeUploads"
-            class="text-muted d-none ai-logo-cta d-block text-nowrap mt-1">
+      <i><small id="nonProNoticeUploads"
+            class="d-none ai-logo-cta d-block text-nowrap mt-1">
         Multiple uploads require <a href="/pricing" class="linklike">FastWatermarker Pro</a>.
-      </small>
+      </small></i>
       <div id="previewContainer" class="row row-cols-2 row-cols-md-3 g-2 mt-2"></div>
       <div id="statusErrorFiles" class="alert alert-danger d-none mt-3 mb-0" role="alert" aria-live="assertive"></div>
     </div>
@@ -62,7 +62,7 @@
       <label class="form-label">Logo watermark</label>
       <input id="logoInput" class="visually-hidden" type="file" name="logo" accept="image/svg+xml,image/png,image/*">
       <div id="logoDropZone" class="dropzone dropzone--small" role="button" tabindex="0" aria-label="Drop a logo or click to browse">
-        <div class="dz-icon">📂</div>
+        <div class="dz-icon">+</div>
         <div class="dz-title">Drag & drop a logo</div>
         <div class="dz-sub">or <span class="dz-link">browse</span> your device</div>
       </div>
