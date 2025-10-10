@@ -146,7 +146,9 @@
             <ul class="list-unstyled small flex-grow-1">
               {% for b in bullets %}<li class="mb-2">✔️ {{ b }}</li>{% endfor %}
             </ul>
-            <a href="/pricing" class="btn {{ btnclass }} w-100 mt-2">{{ cta }}</a>
+            <a href="{{ '/upload' if name == 'Free' else '/pricing' }}" class="btn {{ btnclass }} w-100 mt-2">
+              {{ cta }}
+            </a>
           </div>
         </div>
       </div>
