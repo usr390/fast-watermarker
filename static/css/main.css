@@ -10,6 +10,9 @@
 }
 
 /* ========= Page Background ========= */
+body {
+  font-family: 'Ubuntu', sans-serif;
+}
 body.brand-bg{ background:var(--brand-red); min-height:100vh; position:relative; color:#111; }
 body.brand-bg::before{
   content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
