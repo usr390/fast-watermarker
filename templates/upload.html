@@ -48,8 +48,8 @@
         <div class="dz-title">Drag & drop images or videos</div>
       </div>
       <i><small id="nonProNoticeUploads"
-            class="d-none ai-logo-cta d-block text-nowrap mt-1">
-        Uploads multiple files with <a href="/pricing" class="linklike">FastWatermarker Pro</a>.
+            class="d-none ai-logo-cta d-block text-nowrap mt-2">
+        Upload multiple files with <a href="/pricing" class="linklike">FastWatermarker Pro</a>.
       </small></i>
       <div id="previewContainer" class="row row-cols-2 row-cols-md-3 g-2 mt-2"></div>
       <div id="statusErrorFiles" class="alert alert-danger d-none mt-3 mb-0" role="alert" aria-live="assertive"></div>
@@ -68,7 +68,7 @@
       <p class="ai-logo-cta d-flex align-items-center justify-content-between">
         <button type="button" class="linklike d-inline-flex align-items-center gap-1" id="aiLogoOpenBtn">
           <i class="bi bi-stars"></i>
-          Generate One!
+          Don't have one yet? Generate One!
         </button>
       </p>
 
@@ -88,19 +88,33 @@
     <hr class="my-4">
 
     <div class="mb-3">
-      <label class="form-label">Watermark size</label>
-      <input class="form-range" type="range" min="0.20" max="0.80" step="0.05" name="scale" value="0.60">
+      <label for="scaleInput" class="form-label d-flex align-items-center justify-content-between">
+        <span>Watermark size</span>
+        <span id="scaleValue" class="size-chip" aria-live="polite">Medium</span>
+      </label>
+
+      <input class="form-range"
+            type="range"
+            min="0.20" max="0.80" step="0.05"
+            name="scale" id="scaleInput" value="0.60">
+    </div>
+
+    <div class="mb-3">
+      <label for="opacityInput" class="form-label d-flex align-items-center justify-content-between">
+        <span>Watermark opacity</span>
+        <span id="opacityValue" class="text-muted opacity-value" aria-live="polite">0.90</span>
+      </label>
+      <input class="form-range" type="range"
+            min="0" max="1" step="0.05"
+            name="opacity" id="opacityInput" value="0.90">
     </div>
 
     <div class="mb-3">
       <label class="form-label d-flex align-items-center justify-content-between">
-        <span>Watermark opacity</span>
+        <span>Watermark position</span>
+        <span id="positionValue" class="text-muted position-value" aria-live="polite">center</span>
       </label>
-      <input class="form-range" type="range" min="0.10" max="1.00" step="0.05" name="opacity" id="opacityInput" value="0.90">
-    </div>
 
-    <div class="mb-3">
-      <label class="form-label d-block">Watermark position</label>
       <input type="hidden" name="position" id="positionInput" value="center">
 
       <div class="pos-grid" role="group" aria-label="Watermark position">
@@ -116,6 +130,7 @@
         <button type="button" class="pos-cell pos-disabled"></button>
         <button type="button" class="pos-cell" data-pos="br" aria-label="Bottom right"></button>
       </div>
+
       <hr class="my-4">
     </div>
 
@@ -359,13 +374,13 @@
           if (dropTitle) dropTitle.textContent = 'Upload an image or video';
           fileInput?.removeAttribute('multiple');
           nonProUploads?.classList.remove('d-none');
-          aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Generate one');
+          aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Don\'t have one yet? Generate one!');
           if (form) form.action = '/upload';
         } else {
           // Pro: multiple files + /upload-multi
           fileInput?.setAttribute('multiple', '');
           nonProUploads?.classList.add('d-none');
-          aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Generate one!');
+          aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Don\'t have one yet? Generate one!');
           if (form) form.action = '/upload-multi';
         }
 
@@ -1005,6 +1020,102 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('opacityInput');
+  const out   = document.getElementById('opacityValue');
+  if (!input || !out) return;
+
+  const clamp = v => Math.max(0, Math.min(1, parseFloat(v || 0)));
+
+  function fmt(v){
+    let x = clamp(v);
+    // snap near the edges to avoid floating-point weirdness
+    if (x < 1e-9) x = 0;
+    if (1 - x < 1e-9) x = 1;
+    return (x === 0 || x === 1) ? String(x) : x.toFixed(2);
+  }
+
+  const update = () => { out.textContent = fmt(input.value); };
+
+  input.addEventListener('input',  update);
+  input.addEventListener('change', update);
+  input.form?.addEventListener('reset', () => setTimeout(update, 0));
+  update();
+});
+</script>
+<script>
+(function initPositionGridAndValue(){
+  const grid    = document.querySelector('.pos-grid');
+  const hidden  = document.getElementById('positionInput');
+  const display = document.getElementById('positionValue');
+  if (!grid || !hidden) return;
+
+  const human = { tl: 'Top left', tr: 'Top right', bl: 'Bottom left', br: 'Bottom right', center: 'Center' };
+  const setDisplay = (val) => { if (display) display.textContent = human[val] || val || 'center'; };
+
+  // set initial active state + label
+  const current = hidden.value || 'center';
+  grid.querySelectorAll('.pos-cell[data-pos].active').forEach(el => el.classList.remove('active'));
+  grid.querySelector(`.pos-cell[data-pos="${current}"]`)?.classList.add('active');
+  setDisplay(current);
+
+  // click to change
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.pos-cell[data-pos]:not(.pos-disabled)');
+    if (!btn) return;
+
+    grid.querySelectorAll('.pos-cell[data-pos].active').forEach(el => el.classList.remove('active'));
+    btn.classList.add('active');
+
+    const val = btn.dataset.pos || 'center';
+    hidden.value = val;
+    setDisplay(val);
+  });
+
+  // keyboard support
+  grid.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') &&
+        e.target.matches('.pos-cell[data-pos]:not(.pos-disabled)')) {
+      e.preventDefault();
+      e.target.click();
+    }
+  });
+})();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const input  = document.getElementById('scaleInput');
+  const chip   = document.getElementById('scaleValue');
+  if (!input || !chip) return;
+
+  const min = parseFloat(input.min || '0.2');
+  const max = parseFloat(input.max || '0.8');
+
+  // Desired casing:
+  const labels = ['Very small', 'Small', 'Medium', 'Large', 'Very large'];
+
+  const clamp01 = x => Math.max(0, Math.min(1, x));
+  const norm = v => clamp01((parseFloat(v) - min) / (max - min));
+
+  function bucketLabel(t){
+    const idx = Math.round(t * (labels.length - 1));
+    return labels[idx];
+  }
+
+  function update(){
+    const t = norm(input.value);
+    chip.textContent = bucketLabel(t);
+    chip.style.setProperty('--p', t.toString());
+  }
+
+  input.addEventListener('input', update);
+  input.addEventListener('change', update);
+  input.form?.addEventListener('reset', () => setTimeout(update, 0));
+  update();
 });
 </script>
 {% endblock %}

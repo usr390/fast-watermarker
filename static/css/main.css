@@ -320,3 +320,10 @@ body.scrolled .fw-nav {
   #nonProNoticeUploads { white-space: normal; }
 }
 
+
+.opacity-value { font-variant-numeric: tabular-nums; min-width: 3.2ch; text-align: right; }
+.position-value {
+  min-width: 5ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
