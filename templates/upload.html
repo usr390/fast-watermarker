@@ -137,8 +137,9 @@
         <img id="resultImg" class="img-fluid rounded shadow-sm d-none" alt="Watermarked result" />
         <video id="resultVideo" class="w-100 rounded shadow-sm d-none" playsinline controls></video>
         <figcaption class="small text-muted mt-2">
-          Long-press the image/video to save to Photos. 
+          Long-press the image to save to Photos. 
           <a id="openInNewTab" class="ms-2 d-none" target="_blank" rel="noopener">Open in new tab</a>
+          <a id="downloadInline" class="ms-2 d-none" download>Download</a>  <!-- NEW -->
         </figcaption>
       </figure>
     </div>
@@ -878,10 +879,11 @@ document.addEventListener('DOMContentLoaded', () => {
         <img id="resultImg" class="img-fluid rounded shadow-sm d-none" alt="Watermarked result"/>
         <video id="resultVideo" class="w-100 rounded shadow-sm d-none" playsinline controls></video>
         <figcaption class="small text-muted mt-2">
-          Long-press to save. <a id="openInNewTab" class="ms-2 d-none" target="_blank" rel="noopener">Open in new tab</a>
+          Long-press to save. 
+          <a id="openInNewTab" class="ms-2 d-none" target="_blank" rel="noopener">Open in new tab</a>
+          <a id="downloadInline" class="ms-2 d-none" download>Download</a>
         </figcaption>
       </figure>`;
-    // place it right after the success alert (or at end of form)
     (successEl?.after ? successEl.after(wrap) : form.appendChild(wrap));
     return wrap;
   }
@@ -945,37 +947,52 @@ document.addEventListener('DOMContentLoaded', () => {
       if (outNameEl)  { outNameEl.textContent = filename; }
 
       // Inline preview for single-file endpoint
-      const isSingle = action.endsWith('/upload');
-      const inlineWrap  = ensureInlinePreview();
+      const isSingle   = action.endsWith('/upload');
+      const inlineWrap = ensureInlinePreview();
       const resultImg   = inlineWrap.querySelector('#resultImg');
       const resultVideo = inlineWrap.querySelector('#resultVideo');
       const openInNew   = inlineWrap.querySelector('#openInNewTab');
+      const downloadInline = inlineWrap.querySelector('#downloadInline'); // NEW
 
       // reset
       resultImg.classList.add('d-none');
       resultVideo.classList.add('d-none');
       openInNew.classList.add('d-none');
+      if (downloadInline) downloadInline.classList.add('d-none'); // NEW
 
       if (isSingle) {
         if (ct.startsWith('image/')) {
+          // IMAGE: inline preview, no success alert
           resultImg.src = url;
           resultImg.alt = filename || 'Watermarked image';
           resultImg.classList.remove('d-none');
           inlineWrap.classList.remove('d-none');
           if (openInNew) { openInNew.href = url; openInNew.textContent = 'Open image'; openInNew.classList.remove('d-none'); }
-          hide(successEl); // avoid duplicate UI; comment this out if you want both
+          hide(successEl);
         } else if (ct.startsWith('video/')) {
+          // VIDEO: inline + download links + success alert
           resultVideo.src = url;
           resultVideo.classList.remove('d-none');
           inlineWrap.classList.remove('d-none');
-          if (openInNew) { openInNew.href = url; openInNew.textContent = 'Open video'; openInNew.classList.remove('d-none'); }
-          hide(successEl);
+
+          if (openInNew) {
+            openInNew.href = url;
+            openInNew.textContent = 'Open video';
+            openInNew.classList.remove('d-none');
+          }
+          if (downloadInline) {
+            downloadInline.href = url;
+            downloadInline.download = filename || 'watermarked.mp4';
+            downloadInline.textContent = 'Download';
+            downloadInline.setAttribute('aria-label', 'Download video'); // a11y
+            downloadInline.classList.remove('d-none');                   // <-- SHOW
+          }
+
+          show(successEl); // keep global green Download link visible too
         } else {
-          // unknown type -> fall back to download UI
           show(successEl);
         }
       } else {
-        // multi-file (zip) -> normal download success UI
         show(successEl);
       }
 
