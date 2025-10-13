@@ -3,10 +3,11 @@
 
 {% block content %}
 <!-- Upload navbar (logo + hamburger + profile) -->
- <nav class="navbar navbar-expand-lg navbar-dark bg-transparent mb-4">
+<nav class="navbar navbar-expand-lg navbar-dark bg-transparent mb-4">
   <div class="container">
     <a class="navbar-brand d-flex align-items-center gap-2" href="/">
       <img src="{{ url_for('static', path='images/logo.png') }}" alt="FastWatermarker" height="120" />
+      <i><span class="brand-pro">Pro</span></i>
     </a>
   </div>
 </nav>
@@ -234,6 +235,15 @@
     .remove-btn:hover { background: rgba(255, 0, 0, 0.8); }
     .preview-wrapper { position: relative; }
   </style>
+  <style>
+  /* uses your brand yellow; falls back to #FFC107 if not set */
+  .brand-pro{
+    color: #ffcc00;
+    font-weight: 600;
+    font-size: 1.25rem; /* tweak to taste */
+    line-height: 1;
+  }
+</style>
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
