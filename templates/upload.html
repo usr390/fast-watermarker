@@ -3,7 +3,14 @@
 
 {% block content %}
 <!-- Upload navbar (logo + hamburger + profile) -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-transparent mb-4">
+ <nav class="navbar navbar-expand-lg navbar-dark bg-transparent mb-4">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+      <img src="{{ url_for('static', path='images/logo.png') }}" alt="FastWatermarker" height="120" />
+    </a>
+  </div>
+</nav>
+<!-- <nav class="navbar navbar-expand-lg navbar-dark bg-transparent mb-4">
   <div class="container">
     <a class="navbar-brand d-flex align-items-center gap-2" href="/">
       <img src="{{ url_for('static', path='images/logo.png') }}" alt="FastWatermarker" height="120" />
@@ -25,16 +32,13 @@
       </ul>
 
       <div class="ms-lg-3 mt-3 mt-lg-0 d-flex gap-2 align-items-center mb-2 mb-lg-0">
-        <!-- Clerk avatar (signed in) -->
         <div id="clerk-user-button-upload" style="display:none"></div>
-        <!-- Fallback (signed out) -->
         <a id="clerk-signin-link-upload" class="btn btn-outline-light" href="/login">Sign in</a>
-        <!-- Optional CTA (hidden on upload page) -->
         <a class="btn btn-primary d-none d-lg-inline-block disabled" tabindex="-1" aria-disabled="true">Start watermarking</a>
       </div>
     </div>
   </div>
-</nav>
+</nav> -->
 
   <form id="wmForm" action="/upload-multi" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
     <div class="mb-3">
@@ -263,169 +267,131 @@
       window.Clerk?.addListener?.(mount);
     });
   </script>
-  <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      // -----------------------------
-      // Grab elements used by both features
-      // -----------------------------
-      const aiBtn = document.getElementById('aiLogoOpenBtn');
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  // 🔒 Recruiter demo: always behave like Pro (AI modal always opens, multi-upload enabled)
+  const FORCE_PRO = true;
 
-      // AI modal bits
-      const aiModal = document.getElementById('aiLogoModal');
-      const aiCloseBtn = document.getElementById('aiLogoCloseBtn');
+  // -----------------------------
+  // Grab elements
+  // -----------------------------
+  const aiBtn = document.getElementById('aiLogoOpenBtn');
+  const aiModal = document.getElementById('aiLogoModal');
+  const aiCloseBtn = document.getElementById('aiLogoCloseBtn');
 
-      // Upsell modal bits (custom “AI-style” modal)
-      const upsell = document.getElementById('upsellModal');
-      const upsellXBtn = document.getElementById('upsellXBtn');
-      const upsellCloseBtn = document.getElementById('upsellCloseBtn');
-      const upsellGoPricing = document.getElementById('upsellGoPricing');
+  const upsell = document.getElementById('upsellModal'); // we'll effectively disable this
+  const upsellXBtn = document.getElementById('upsellXBtn');
+  const upsellCloseBtn = document.getElementById('upsellCloseBtn');
+  const upsellGoPricing = document.getElementById('upsellGoPricing');
 
-      // Upload gating bits
-      const fileInput = document.getElementById('fileInput');
-      const dropTitle = document.querySelector('#dropZone .dz-title');
-      const dropSub   = document.querySelector('#dropZone .dz-sub');
-      const nonProUploads = document.getElementById('nonProNoticeUploads');
+  const fileInput = document.getElementById('fileInput');
+  const dropTitle = document.querySelector('#dropZone .dz-title');
+  const nonProUploads = document.getElementById('nonProNoticeUploads');
 
-      // State
-      let isPro = false;
+  // -----------------------------
+  // Helpers
+  // -----------------------------
+  function openOverlay(el) {
+    if (!el) return;
+    el.hidden = false;
+    el.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeOverlay(el, focusEl) {
+    if (!el) return;
+    el.hidden = true;
+    el.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    focusEl?.focus?.();
+  }
 
-      // -----------------------------
-      // Shared helpers: open/close overlays (no globals)
-      // -----------------------------
-      function openOverlay(el) {
-        if (!el) return;
-        el.hidden = false;
-        el.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
-      }
-      function closeOverlay(el, focusEl) {
-        if (!el) return;
-        el.hidden = true;
-        el.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
-        focusEl?.focus?.();
-      }
+  function openAIModal() {
+    openOverlay(aiModal);
+    aiModal?.querySelector('#aiLogoForm [name="text"]')?.focus();
+  }
+  function closeAIModal() { closeOverlay(aiModal, aiBtn); }
+  aiCloseBtn?.addEventListener('click', closeAIModal);
+  aiModal?.addEventListener('click', (e) => { if (e.target === aiModal) closeAIModal(); });
 
-      // -----------------------------
-      // AI modal open/close
-      // -----------------------------
-      function openAIModal() {
-        openOverlay(aiModal);
-        aiModal?.querySelector('#aiLogoForm [name="text"]')?.focus();
-      }
-      function closeAIModal() {
-        closeOverlay(aiModal, aiBtn);
-      }
-      aiCloseBtn?.addEventListener('click', closeAIModal);
-      aiModal?.addEventListener('click', (e) => {
-        if (e.target === aiModal) closeAIModal();
-      });
+  // Disable upsell entirely when forcing pro
+  function openUpsell(){ if (FORCE_PRO) return openAIModal(); openOverlay(upsell); }
+  function closeUpsell(){ closeOverlay(upsell, aiBtn); }
+  upsellXBtn?.addEventListener('click', closeUpsell);
+  upsellCloseBtn?.addEventListener('click', closeUpsell);
+  upsell?.addEventListener('click', (e) => { if (e.target === upsell) closeUpsell(); });
+  upsellGoPricing?.addEventListener('click', () => closeUpsell());
 
-      // -----------------------------
-      // Upsell open/close
-      // -----------------------------
-      function openUpsell() {
-        openOverlay(upsell);
-      }
-      function closeUpsell() {
-        closeOverlay(upsell, aiBtn);
-      }
-      upsellXBtn?.addEventListener('click', closeUpsell);
-      upsellCloseBtn?.addEventListener('click', closeUpsell);
-      upsell?.addEventListener('click', (e) => {
-        if (e.target === upsell) closeUpsell();
-      });
-      upsellGoPricing?.addEventListener('click', () => {
-        // optional: close before navigating
-        closeUpsell();
-      });
-      // Escape key for both modals
-      window.addEventListener('keydown', (e) => {
-        if (e.key !== 'Escape') return;
-        if (!aiModal?.hidden) return closeAIModal();
-        if (!upsell?.hidden) return closeUpsell();
-      });
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!aiModal?.hidden) return closeAIModal();
+    if (!upsell?.hidden) return closeUpsell();
+  });
 
-      // -----------------------------
-      // Pro check (Clerk)
-      // -----------------------------
-      async function getProStatus() {
-        try {
-          if (!window.Clerk) return false;
-          await window.Clerk.load();
-          const session = window.Clerk.session;
-          if (!window.Clerk.isSignedIn || !session) return false;
-          const res = session.checkAuthorization?.({ plan: 'fastwatermarker_pro' });
-          const authorized = typeof res === 'boolean' ? res : await res;
-          return !!authorized;
-        } catch {
-          return false;
-        }
-      }
+  // -----------------------------
+  // Pro check (short-circuited)
+  // -----------------------------
+  async function getProStatus(){
+    if (FORCE_PRO) return true;                     // 👈 key line
+    try {
+      if (!window.Clerk) return false;
+      await window.Clerk.load();
+      const session = window.Clerk.session;
+      if (!window.Clerk.isSignedIn || !session) return false;
+      const res = session.checkAuthorization?.({ plan: 'fastwatermarker_pro' });
+      const authorized = typeof res === 'boolean' ? res : await res;
+      return !!authorized;
+    } catch { return false; }
+  }
 
-      // -----------------------------
-      // Apply gating (uploads + button label)
-      // -----------------------------
-      function applyUploadGating() {
-        const form = document.getElementById('wmForm');
+  // -----------------------------
+  // Apply gating (respects FORCE_PRO)
+  // -----------------------------
+  function applyUploadGating(isPro){
+    const form = document.getElementById('wmForm');
+    if (!isPro) {
+      // (won't run with FORCE_PRO = true)
+      dropTitle && (dropTitle.textContent = 'Upload an image or video');
+      fileInput?.removeAttribute('multiple');
+      nonProUploads?.classList.remove('d-none');
+      aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Don\'t have one yet? Generate one!');
+      form && (form.action = '/upload');
+    } else {
+      // Pro behavior
+      dropTitle && (dropTitle.textContent = 'Drag & drop images or videos');
+      fileInput?.setAttribute('multiple', '');
+      nonProUploads?.classList.add('d-none');
+      aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Don\'t have one yet? Generate one!');
+      form && (form.action = '/upload-multi');
+    }
+  }
 
-        if (!isPro) {
-          // Non-Pro: single file + /upload
-          if (dropTitle) dropTitle.textContent = 'Upload an image or video';
-          fileInput?.removeAttribute('multiple');
-          nonProUploads?.classList.remove('d-none');
-          aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Don\'t have one yet? Generate one!');
-          if (form) form.action = '/upload';
-        } else {
-          // Pro: multiple files + /upload-multi
-          fileInput?.setAttribute('multiple', '');
-          nonProUploads?.classList.add('d-none');
-          aiBtn && (aiBtn.innerHTML = '<i class="bi bi-stars"></i> Don\'t have one yet? Generate one!');
-          if (form) form.action = '/upload-multi';
-        }
-
-        // enforce single file once for non-pro (unchanged)
-        fileInput?.addEventListener('change', () => {
-          if (!isPro && fileInput.files && fileInput.files.length > 1) {
-            const dt = new DataTransfer();
-            dt.items.add(fileInput.files[0]);
-            fileInput.files = dt.files;
-            alert('Multiple uploads are a Pro feature. Kept your first file.');
-          }
-        }, { once: true });
-      }
-
-      // -----------------------------
-      // Wire the button (uses the in-scope openAIModal/openUpsell)
-      // -----------------------------
-      function wireAiButton() {
-        if (!aiBtn) return;
-        // remove previous listeners safely by replacing the node
-        const fresh = aiBtn.cloneNode(true);
-        aiBtn.replaceWith(fresh);
-
-        fresh.addEventListener('click', (e) => {
-          e.preventDefault();
-          if (!isPro) return openUpsell();
-          openAIModal();
-        });
-      }
-
-      // -----------------------------
-      // Init flow
-      // -----------------------------
-      isPro = await getProStatus();
-      applyUploadGating();
-      wireAiButton();
-
-      // If your app can change auth state live, re-evaluate here:
-      window.Clerk?.addListener?.(async () => {
-        isPro = await getProStatus();
-        applyUploadGating();
-        wireAiButton();
-      });
+  function wireAiButton(isPro){
+    if (!aiBtn) return;
+    const fresh = aiBtn.cloneNode(true);
+    aiBtn.replaceWith(fresh);
+    fresh.addEventListener('click', (e) => {
+      e.preventDefault();
+      // With FORCE_PRO, always open AI modal
+      if (FORCE_PRO || isPro) return openAIModal();
+      openUpsell();
     });
-  </script>
+  }
+
+  // -----------------------------
+  // Init
+  // -----------------------------
+  const isPro = await getProStatus();               // will be true when FORCE_PRO = true
+  applyUploadGating(isPro);
+  wireAiButton(isPro);
+
+  // If auth state changes, keep forcing pro behavior
+  window.Clerk?.addListener?.(async () => {
+    const pro = await getProStatus();
+    applyUploadGating(pro);
+    wireAiButton(pro);
+  });
+});
+</script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
       // ===== existing vars you already have =====

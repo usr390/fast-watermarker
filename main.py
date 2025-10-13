@@ -52,7 +52,7 @@ async def reject_large_requests(request, call_next):
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
     # Public marketing/SEO page
-    return templates.TemplateResponse("landing.html", {"request": request})
+    return templates.TemplateResponse("upload.html", {"request": request})
 
 @app.get("/upload", response_class=HTMLResponse)
 async def upload_page(request: Request):
